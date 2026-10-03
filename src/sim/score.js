@@ -1,13 +1,13 @@
 // Scoring, medals and scrap: numbers tuned with scripts/balance.mjs.
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-/** Summarise a run (the walker as it stands) into results everyone can show. */
-export function scoreRun(course, w) {
+/** Summarise a run (the walker as it stands) into results everyone can show. `solo`: Pilot mode, judged on its own times. */
+export function scoreRun(course, w, solo = false) {
   const time = w.finished ? w.finishT : w.t;
   const progress = clamp((w.maxX - course.startX) / (course.goalX - course.startX), 0, 1);
   const cond = clamp(w.cargo.cond, 0, 1);
   const grooveAvg = w.t > 0 ? clamp(w.grooveSum / w.t, 0, 100) : 0;
-  const [gold, silver] = course.par;
+  const [gold, silver] = (solo && course.parSolo) || course.par;
   let medal = 'none';
   if (w.finished) medal = time <= gold && cond >= 0.5 ? 'gold' : time <= silver && cond >= 0.25 ? 'silver' : 'bronze';
   let score;

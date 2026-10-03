@@ -713,7 +713,7 @@ function admitPending(app) {
 function finishRun(app) {
   const sim = app.run.sim;
   const w = sim.w;
-  const r = scoreRun(app.course, w);
+  const r = scoreRun(app.course, w, !!app.net.run?.pilot);
   const run = app.net.run;
   const legNames = run.owners.map((o) => (o === 'bot' ? 'Bot' : app.room.players.get(o)?.name ?? 'Player'));
   const humans = run.pilot ? 1 : run.owners.filter((o) => o !== 'bot').length;

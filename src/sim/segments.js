@@ -119,12 +119,12 @@ export const TEMPLATES = {
   },
   iceridge(ctx, x0, tier, rng) {
     const len = 20;
-    const half = 4.2 - tier * 0.5;
+    const half = 4.2 - tier * 0.4;
     corridor(ctx, x0, x0 + len, 9, S.VOID, VOID_DEPTH);
     corridor(ctx, x0, x0 + len, half, S.ICE);
     corridor(ctx, x0, x0 + 2.5, 7);
     corridor(ctx, x0 + len - 2.5, x0 + len, 7);
-    if (tier >= 2) ctx.winds.push({ x0: x0 + 4, x1: x0 + len - 4, z0: -12, z1: 12, dx: 0, dz: rng.sign(), base: 0.25, gust: 0.6 + tier * 0.25, period: 5, phase: rng.range(0, 6.28) });
+    if (tier >= 2) ctx.winds.push({ x0: x0 + 4, x1: x0 + len - 4, z0: -12, z1: 12, dx: 0, dz: rng.sign(), base: 0.2, gust: 0.5 + tier * 0.2, period: 5, phase: rng.range(0, 6.28) });
     setPath(ctx, x0, x0 + len, () => 0);
     return len;
   },
@@ -233,10 +233,10 @@ export const TEMPLATES = {
   rockfall(ctx, x0, tier, rng) {
     const len = 20;
     corridor(ctx, x0, x0 + len, 6);
-    const n = 1 + tier;
+    const n = 1 + tier + (tier > 3 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       const id = ctx.rocks.length;
-      ctx.rocks.push({ id, kind: 'rock', x: x0 + 4 + ((i + 0.5) * (len - 6)) / n, z: rng.range(-3, 3), r: 2.0, period: 4.2 - tier * 0.4, phase: rng.range(0, 6.28), lead: 1.4 });
+      ctx.rocks.push({ id, kind: 'rock', x: x0 + 4 + ((i + 0.5) * (len - 6)) / n, z: rng.range(-3, 3), r: 2.0, period: tier > 3 ? 2.6 : 4.2 - tier * 0.4, phase: rng.range(0, 6.28), lead: tier > 3 ? 1.0 : 1.4 });
     }
     setPath(ctx, x0, x0 + len, (x) => wander(ctx, x, 2));
     return len;
@@ -335,14 +335,14 @@ export const TEMPLATES = {
     const len = 30;
     corridor(ctx, x0, x0 + len, 9, S.VOID, VOID_DEPTH);
     corridor(ctx, x0, x0 + 3, 7);
-    const spacing = 2.6 + Math.min(3, tier) * 0.35 + (tier > 3 ? 0.2 : 0);
-    const r = 1.5 - Math.min(3, tier) * 0.15 - (tier > 3 ? 0.05 : 0);
+    const spacing = 2.6 + Math.min(3, tier) * 0.35 + (tier > 3 ? 0.7 : 0);
+    const r = 1.5 - Math.min(3, tier) * 0.15 - (tier > 3 ? 0.35 : 0);
     let x = x0 + 3 + spacing * 0.6;
-    setPath(ctx, x0, x0 + len, (xx) => wander(ctx, xx, 1));
+    setPath(ctx, x0, x0 + len, (xx) => wander(ctx, xx, tier > 3 ? 0 : 1)); // the last stride: two straight rows
     while (x < x0 + len - 3) {
       const pz = ctx.path[Math.min(ctx.path.length - 1, Math.round(x))];
-      // sea stacks: the tide laps at them, the wind leans on you
-      const top = ctx.elev + (tier >= 4 ? 0.15 : 0.3); // the tide washes over them only at its peak
+      // sea stacks: the high tide washes over the last ones and makes them slippery (brace on them)
+      const top = ctx.elev + (tier >= 4 ? 0.15 : 0.3);
       fillDisc(ctx.t, x, pz - 1.5, r, S.STONE, top);
       fillDisc(ctx.t, x + rng.range(-0.5, 0.5), pz + 1.5, r, S.STONE, top);
       x += spacing;
@@ -350,7 +350,7 @@ export const TEMPLATES = {
     corridor(ctx, x0 + len - 3, x0 + len, 7);
     if (!ctx.water) ctx.water = { base: ctx.elev - 0.9, amp: 0.8 + tier * 0.15, speed: 0.5, phase: rng.range(0, 6.28) };
     const wt = Math.min(3, tier);
-    ctx.winds.push({ x0: x0 + 3, x1: x0 + len - 3, z0: -12, z1: 12, dx: 0, dz: rng.sign(), base: 0.2 + wt * 0.1, gust: 0.6 + wt * 0.3, period: 4, phase: rng.range(0, 6.28) });
+    ctx.winds.push({ x0: x0 + 3, x1: x0 + len - 3, z0: -12, z1: 12, dx: 0, dz: rng.sign(), base: 0.2 + wt * 0.1, gust: 0.6 + wt * 0.3 + (tier > 3 ? 0.8 : 0), period: 4, phase: rng.range(0, 6.28) });
     return len;
   },
   goal(ctx, x0) {

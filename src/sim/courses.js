@@ -23,17 +23,17 @@ export const EXPEDITIONS = [
   { name: 'First Steps', segs: [['hills', 1], ['mud', 1], ['stones', 1]] },
   { name: 'Puddle Run', segs: [['hills', 1], ['mud', 2], ['stones', 1], ['ridge', 1]] },
   { name: 'Stone Hop', segs: [['stones', 1], ['hills', 2], ['stones', 2], ['ridge', 1]] },
-  { name: 'Clay Crown', segs: [['ridge', 2], ['stones', 2], ['hills', 2], ['mud', 3]] },
+  { name: 'Clay Crown', segs: [['ridge', 2], ['stones', 2], ['hills', 2], ['mud', 2]] },
   // Salt Pans
   { name: 'Thin Ice', segs: [['ice', 1], ['hills', 1], ['wind', 1], ['ice', 1]] },
   { name: 'Crosswind', segs: [['wind', 1], ['iceridge', 1], ['ice', 2], ['ridge', 2]] },
   { name: 'White Out', segs: [['ice', 2], ['iceridge', 2], ['wind', 2], ['stones', 2]] },
-  { name: 'Salt Crust', segs: [['iceridge', 2], ['wind', 2], ['ice', 3], ['iceridge', 3]] },
+  { name: 'Salt Crust', segs: [['iceridge', 2], ['ice', 2], ['iceridge', 3]] },
   // Foundry
   { name: 'Grate Expectations', segs: [['grates', 1], ['vents', 1], ['conveyor', 1], ['grates', 1]] },
   { name: 'Steam Shift', segs: [['vents', 2], ['platforms', 1], ['pistons', 1], ['grates', 2]] },
   { name: 'Belt Line', segs: [['conveyor', 2], ['platforms', 2], ['vents', 2], ['pistons', 2]] },
-  { name: 'Full Furnace', segs: [['platforms', 3], ['vents', 3], ['conveyor', 3], ['pistons', 3], ['grates', 3]] },
+  { name: 'Full Furnace', segs: [['platforms', 3], ['vents', 3], ['conveyor', 3], ['pistons', 3], ['vents', 2]] },
   // Ravine
   { name: 'Loose Footing', segs: [['springs', 1], ['crumble', 1], ['gap', 1], ['rockfall', 1]] },
   { name: 'Two Across', segs: [['gap', 2], ['crumble', 2], ['rails', 1], ['springs', 2]] },
@@ -45,10 +45,10 @@ export const EXPEDITIONS = [
   { name: 'Tick Tock', segs: [['gates', 2], ['bars', 2], ['gears', 2], ['swingbars', 2]] },
   { name: 'Mainspring', segs: [['gears', 3], ['bars', 3], ['gates', 3], ['swingbars', 3]] },
   // Storm Coast
-  { name: 'High Tide', segs: [['shore', 1], ['rockfall', 1], ['boulders', 1], ['shore', 2]] },
-  { name: 'Rolling Stones', segs: [['boulders', 2], ['shore', 2], ['wind', 2], ['rockfall', 2]] },
-  { name: 'Sea Spray', segs: [['shore', 3], ['boulders', 2], ['stones', 2], ['rockfall', 3]] },
-  { name: 'The Great Stride', segs: [['shore', 3], ['boulders', 3], ['stride', 3], ['rockfall', 3], ['stride', 4]] },
+  { name: 'High Tide', segs: [['shore', 2], ['rockfall', 2], ['boulders', 2]] },
+  { name: 'Rolling Stones', segs: [['boulders', 3], ['wind', 2], ['rockfall', 3]] },
+  { name: 'Sea Spray', segs: [['shore', 3], ['stones', 2], ['rockfall', 3]] },
+  { name: 'The Great Stride', segs: [['stride', 3], ['rockfall', 4], ['stride', 4]], budget: 3 }, // three tumbles and the sea keeps you
 ];
 
 export const MUTATORS = {
@@ -96,6 +96,7 @@ export function buildCourse(spec) {
     name = e.name;
     cargo = CARGO_BY_INDEX(biome, index);
     seed = spec.seed ?? `${expeditionId(biome, index)}`;
+    budget = e.budget ?? TUMBLE_BUDGET;
   } else if (kind === 'endless') {
     seed = spec.seed ?? 'endless';
     const rng = makeRng(`${seed}-plan`);
@@ -193,7 +194,8 @@ export function buildCourse(spec) {
     goalX: ctx.goalX,
     respawns: [],
     dynIndex: [],
-    par: parOf(kind, biome, spec.index | 0, total),
+    par: parOf(kind, biome, spec.index | 0, total, false),
+    parSolo: parOf(kind, biome, spec.index | 0, total, true),
   };
   if (mutators.includes('gusty')) for (const w of course.winds) w.base *= 1.5;
   repairCourse(course);
@@ -210,17 +212,28 @@ function biomeOf(tpl, fallback) {
   return fallback;
 }
 
-// Gold and silver times (seconds) by course: measured with the balance harness (pro bots x 1.25, average x 1.15).
+// Gold and silver times (seconds) by course, from scripts/balance.mjs (npm run balance -- par). Co-op:
+// gold is what a team of four good players does, silver an average team. Solo (Pilot mode): gold is a
+// steady pilot with the Master's bots, silver with the Journeyman's.
 const PAR = {
-  'e1-1': [118, 153], 'e1-2': [126, 164], 'e1-3': [120, 156], 'e1-4': [136, 177],
-  'e2-1': [134, 174], 'e2-2': [162, 211], 'e2-3': [181, 235], 'e2-4': [202, 263],
-  'e3-1': [100, 130], 'e3-2': [105, 137], 'e3-3': [94, 122], 'e3-4': [144, 187],
-  'e4-1': [93, 121], 'e4-2': [127, 165], 'e4-3': [93, 121], 'e4-4': [147, 191],
-  'e5-1': [106, 138], 'e5-2': [121, 165], 'e5-3': [151, 196], 'e5-4': [155, 202],
-  'e6-1': [102, 133], 'e6-2': [146, 190], 'e6-3': [161, 209], 'e6-4': [187, 243],
+  'e1-1': [87, 100], 'e1-2': [137, 158], 'e1-3': [115, 132], 'e1-4': [142, 163],
+  'e2-1': [107, 123], 'e2-2': [126, 145], 'e2-3': [124, 146], 'e2-4': [121, 150],
+  'e3-1': [96, 110], 'e3-2': [98, 113], 'e3-3': [95, 109], 'e3-4': [131, 151],
+  'e4-1': [91, 105], 'e4-2': [90, 104], 'e4-3': [101, 116], 'e4-4': [125, 145],
+  'e5-1': [114, 131], 'e5-2': [108, 124], 'e5-3': [105, 121], 'e5-4': [109, 125],
+  'e6-1': [113, 132], 'e6-2': [120, 138], 'e6-3': [88, 102], 'e6-4': [134, 154],
 };
-function parOf(kind, biome, index, total) {
-  if (kind === 'expedition') return PAR[expeditionId(biome, index)] ?? [total / 1.8, total / 1.3];
+const PAR_SOLO = {
+  'e1-1': [70, 85], 'e1-2': [98, 117], 'e1-3': [95, 114], 'e1-4': [101, 122],
+  'e2-1': [98, 117], 'e2-2': [122, 148], 'e2-3': [121, 144], 'e2-4': [125, 163],
+  'e3-1': [77, 91], 'e3-2': [80, 98], 'e3-3': [80, 92], 'e3-4': [104, 125],
+  'e4-1': [79, 93], 'e4-2': [77, 93], 'e4-3': [80, 99], 'e4-4': [105, 126],
+  'e5-1': [96, 116], 'e5-2': [95, 119], 'e5-3': [93, 113], 'e5-4': [96, 116],
+  'e6-1': [88, 102], 'e6-2': [95, 117], 'e6-3': [78, 91], 'e6-4': [107, 136],
+};
+function parOf(kind, biome, index, total, solo) {
+  const id = expeditionId(biome, index);
+  if (kind === 'expedition') return (solo ? PAR_SOLO[id] : PAR[id]) ?? PAR[id] ?? [total / 1.8, total / 1.3];
   return [total / 1.8, total / 1.3];
 }
 
