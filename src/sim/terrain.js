@@ -20,6 +20,9 @@ export function createTerrain(length) {
     f: new Int16Array(n),
   };
   t.f.fill(-1);
+  // The strip is a chasm until a template paints ground on it: nothing walkable appears by accident.
+  t.s.fill(S.VOID);
+  t.h.fill(VOID_DEPTH);
   return t;
 }
 

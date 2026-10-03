@@ -148,12 +148,17 @@ export function makeSurfaceTexture() {
     g.strokeStyle = 'rgba(0,0,0,0.25)';
     g.strokeRect(16, 16, s - 32, s - 32);
   });
-  // 15: cliff wall: horizontal paper layers
+  // 15: cliff wall: three broad paper layers, darker toward the bottom (v=0 is the bottom)
   at(15, (s) => {
-    g.fillStyle = 'rgba(0,0,0,0.18)';
-    for (let k = 0; k < 5; k++) g.fillRect(0, k * (s / 5) + 6, s, 5);
-    g.fillStyle = 'rgba(255,255,255,0.12)';
-    for (let k = 0; k < 5; k++) g.fillRect(0, k * (s / 5), s, 3);
+    const bands = [[0, 0.3, 'rgba(0,0,0,0.3)'], [0.3, 0.62, 'rgba(0,0,0,0.14)'], [0.62, 0.9, 'rgba(0,0,0,0.02)'], [0.9, 1, 'rgba(255,255,255,0.18)']];
+    for (const [a, b, c] of bands) {
+      g.fillStyle = c;
+      g.fillRect(0, s * (1 - b), s, s * (b - a));
+    }
+    g.fillStyle = 'rgba(255,255,255,0.14)';
+    g.fillRect(0, s * (1 - 0.3), s, 3);
+    g.fillRect(0, s * (1 - 0.62), s, 3);
+    g.fillRect(0, s * (1 - 0.9), s, 3);
   });
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;

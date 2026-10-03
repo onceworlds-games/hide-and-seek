@@ -143,8 +143,8 @@ const SCENES = {
     ws.setLook(save);
     gfx.setBiome(0);
     for (let i = 0; i < 20; i++) ws.update(1 / 30, gfx, 'workshop');
-    gfx.camera.position.set(11.5, 5.5, 9);
-    gfx.camera.lookAt(0, 1.2, 0);
+    gfx.camera.position.set(7.5, 4.2, 6.5);
+    gfx.camera.lookAt(0, 1.3, 0);
     gfx.camera.fov = 44;
     gfx.camera.updateProjectionMatrix();
     gfx.render();

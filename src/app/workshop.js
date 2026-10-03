@@ -87,9 +87,9 @@ export function createWorkshopScene(gfx, save) {
       view.pitch = Math.sin(view.t * 0.8) * 0.01;
       walker.update(view, dt, view.t);
       walker.key.rotation.x += dt * 1.2;
-      const radius = screen === 'title' ? 15 : 13;
-      g.camera.position.set(Math.cos(angle) * radius, 6.5 + Math.sin(view.t * 0.5) * 0.3, Math.sin(angle) * radius);
-      g.camera.lookAt(0, 1.2, 0);
+      const radius = screen === 'title' ? 11 : 10;
+      g.camera.position.set(Math.cos(angle) * radius, 4.8 + Math.sin(view.t * 0.5) * 0.3, Math.sin(angle) * radius);
+      g.camera.lookAt(0, 1.3, 0);
       g.followSun(0, 0);
       g.sky.follow(g.camera.position.x, 0, g.camera.position.z);
     },
