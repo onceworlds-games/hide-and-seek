@@ -1,5 +1,6 @@
-// Renders the store art with the game's own scenes (?poster=...) in headless Chrome and saves
-// it into store/: four thumbnails, the icon and the badge icons.
+// Renders the store art with the game's own scenes (?poster=...) in headless Chrome on the
+// real GPU at the high quality tier and saves it into store/: four thumbnails, the icon and the
+// badge icons. GPU=0 falls back to software rendering (murkier; for machines without Metal).
 //   npm run build && npm run store            everything
 //   npm run store -- thumb1                   one of them
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -15,6 +16,8 @@ const SHOTS = [
   ...BADGES.map((id) => [`badge-${id}`, 256, 256, `store/badges/${id}.png`]),
 ];
 
+if (process.env.GPU === undefined) process.env.GPU = '1';
+if (process.env.GPU === '0') delete process.env.GPU;
 const only = process.argv[2];
 mkdirSync('store/badges', { recursive: true });
 const { server, port } = await serve('dist');
@@ -27,7 +30,7 @@ for (const [kind, w, h, out] of SHOTS) {
   if (only && !kind.includes(only) && !out.includes(only)) continue;
   await b.send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false });
   await b.send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: kind.startsWith('badge') ? 0 : 1 } });
-  await b.send('Page.navigate', { url: `http://127.0.0.1:${port}/index.html?poster=${kind}` });
+  await b.send('Page.navigate', { url: `http://127.0.0.1:${port}/index.html?poster=${kind}&quality=high` });
   let ok = false;
   for (let i = 0; i < 300 && !ok; i++) {
     await sleep(100);

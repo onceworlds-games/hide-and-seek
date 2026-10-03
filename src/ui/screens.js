@@ -38,7 +38,6 @@ export function createScreens(root, app) {
   function title() {
     const s = el('div', 'screen');
     s.appendChild(el('h1', 'title-word', 'LEGWORK'));
-    s.appendChild(el('div', 'sub', 'FOUR LEGS · ONE MACHINE'));
     const play = btn('PLAY', 'big', () => app.play());
     s.appendChild(play);
     show('title', s);
@@ -269,7 +268,6 @@ export function createScreens(root, app) {
     stat(`${r.grooveAvg}`, 'Groove');
     stat(`+${r.scrap}`, 'Scrap');
     card.appendChild(grid);
-    if (r.why && !r.finished) card.appendChild(el('div', 'row', r.why === 'tumbles' ? `The cargo took ${r.spills} spills. Respawns were cheap; tumbles were not.` : ''));
     if (r.legNames) {
       const row = el('div', 'chips');
       r.legNames.forEach((n, i) => {

@@ -218,6 +218,23 @@ function plant(w, leg, course, dyn) {
     leg.tx = hipS.x + dx * k;
     leg.tz = hipS.z + dz * k;
     sample(course, dyn, w.t, leg.tx, leg.tz, gS);
+    // A snap-in never ends in a pit: keep coming in toward the hip until the ground holds.
+    let tries = 0;
+    while (isDeadly(baseSurface(gS.s)) && tries < 10 && k > 0.05) {
+      k = Math.max(0, k - 0.1);
+      leg.tx = hipS.x + dx * k;
+      leg.tz = hipS.z + dz * k;
+      sample(course, dyn, w.t, leg.tx, leg.tz, gS);
+      tries++;
+    }
+    if (isDeadly(baseSurface(gS.s))) {
+      // nothing within reach holds a foot: the leg stays up (the target shows as bad)
+      leg.tx = hipS.x + dx;
+      leg.tz = hipS.z + dz;
+      leg.valid = false;
+      w.events.push({ type: 'nofoot', leg: leg.i });
+      return;
+    }
     leg.snapped = true;
     w.events.push({ type: 'snap', leg: leg.i, x: leg.tx, y: gS.h, z: leg.tz });
   }
@@ -334,6 +351,9 @@ function stepLeg(w, i, course, dyn, inp, dt) {
   // Swing: the target follows the stick, the foot flies to it, release plants.
   leg.sw += dt;
   if (leg.forced > 0) leg.forced -= dt;
+  // Release plants at the target as it was shown when the button went up (last tick's), never one
+  // the body's own motion just moved somewhere else.
+  if (leg.sw >= 0.08 && leg.forced <= 0 && ((!inp.lift && !leg.inert) || (leg.inert && leg.sw >= 0.3))) return plant(w, leg, course, dyn);
   const e = 1 - Math.exp(-14 * dt);
   if (leg.forced <= 0) {
     leg.tx += (dtx - leg.tx) * e;
@@ -352,7 +372,9 @@ function stepLeg(w, i, course, dyn, inp, dt) {
   sample(course, dyn, w.t, leg.tx, leg.tz, gS);
   leg.ty = gS.h;
   const tb = baseSurface(gS.s);
-  leg.valid = !isDeadly(tb) && !(tb === C.S.SHORE && course.water && waterLevel(course, w.t) - gS.h > 0.9);
+  const dyT = gS.h - hipS.y;
+  const reachable = od * od + dyT * dyT <= (leg.reach + 0.1) * (leg.reach + 0.1);
+  leg.valid = reachable && !isDeadly(tb) && !(tb === C.S.SHORE && course.water && waterLevel(course, w.t) - gS.h > 0.9);
   const swingT = C.SWING_T * (leg.feet === 'springs' ? C.FEET.springs.swingMult : 1);
   const p = Math.min(1, leg.sw / swingT);
   const s = p * p * (3 - 2 * p);
@@ -362,8 +384,6 @@ function stepLeg(w, i, course, dyn, inp, dt) {
   const baseY = leg.ly + (groundTarget - leg.ly) * s;
   leg.fy = baseY + C.HOVER_H * s + (C.SWING_ARC - C.HOVER_H) * Math.sin(Math.PI * p);
   if (leg.fy > hipS.y - 0.4) leg.fy = hipS.y - 0.4;
-  if (!inp.lift && leg.forced <= 0 && leg.sw >= 0.08 && !leg.inert) plant(w, leg, course, dyn);
-  else if (leg.inert && leg.forced <= 0 && leg.sw >= 0.3) plant(w, leg, course, dyn);
 }
 
 function bodyDynamics(w, course, dyn, dt) {
@@ -408,7 +428,7 @@ function bodyDynamics(w, course, dyn, dt) {
   let dvx = cy * dF - sy * dR;
   let dvz = sy * dF + cy * dR;
   windAt(course, w.t, w.x, w.z, windS);
-  const windRes = 1 - 0.9 * Math.min(1, resist / 2.5); // four clay feet barely move; ice drifts; braced ice holds
+  const windRes = 1 - 0.92 * Math.min(1, resist / 2); // four clay feet barely move; ice drifts; braced ice holds
   w.windX = windS.x * w.cfg.windMult;
   w.windZ = windS.z * w.cfg.windMult;
   w.gust = windS.gust;

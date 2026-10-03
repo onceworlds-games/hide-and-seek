@@ -121,8 +121,30 @@ function seedsStudy() {
   console.log(fails ? `  ${fails} generated courses failed` : `  all ${N} generated courses finished`);
 }
 
+function parMode() {
+  // Gold = the pro bots' mean time x 1.25, silver = the average bots' x 1.15: paste into PAR in courses.js.
+  const out = {};
+  for (let i = 0; i < EXPEDITIONS.length; i++) {
+    const id = expeditionId(Math.floor(i / 4), i % 4);
+    const course = buildCourse({ kind: 'expedition', biome: Math.floor(i / 4), index: i % 4 });
+    const pro = [];
+    const avg = [];
+    for (let k = 0; k < 4; k++) {
+      pro.push(playRun(course, 2, k, defaultCfg()));
+      avg.push(playRun(course, 1, k, defaultCfg()));
+    }
+    const sp = stats(pro);
+    const sa = stats(avg);
+    const gold = Math.round(sp.time * 1.25);
+    const silver = Math.round(Math.max(gold * 1.3, (sa.time || sp.time * 1.5) * 1.15));
+    out[id] = [gold, silver];
+  }
+  console.log(JSON.stringify(out));
+}
+
 const t0 = Date.now();
-if (/^e\d-\d$/.test(arg)) table(arg);
+if (arg === 'par') parMode();
+else if (/^e\d-\d$/.test(arg)) table(arg);
 else if (arg === 'feet') feetStudy();
 else {
   const rows = table();

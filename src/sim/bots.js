@@ -8,9 +8,9 @@ import { ventState, geyserState, barAngle, rockState, boulderState, gateState } 
 import { pathZ } from './courses.js';
 
 export const SKILLS = [
-  { name: 'novice', react: 0.34, stride: 1.5, speed: 0.58, err: 0.3, foresight: 0, trot: false, think: 0.15, safety: -0.3 },
-  { name: 'average', react: 0.15, stride: 2.0, speed: 0.85, err: 0.05, foresight: 1, trot: false, think: 0.1, safety: -0.1 },
-  { name: 'pro', react: 0.1, stride: 2.15, speed: 1, err: 0, foresight: 2, trot: true, think: 0.1, safety: -0.2 },
+  { name: 'novice', react: 0.34, stride: 1.5, speed: 0.58, err: 0.3, foresight: 0, trot: false, think: 0.15, safety: -0.3, jitter: 0.45 },
+  { name: 'average', react: 0.15, stride: 2.0, speed: 0.85, err: 0.05, foresight: 1, trot: false, think: 0.1, safety: -0.1, jitter: 0.22 },
+  { name: 'pro', react: 0.1, stride: 2.15, speed: 1, err: 0, foresight: 2, trot: true, think: 0.1, safety: -0.2, jitter: 0 },
 ];
 
 const gS = { h: 0, s: 0, f: -1, platform: -1, conveyor: 0 };
@@ -297,6 +297,13 @@ function pickTarget(team, w, course, dyn, i, out) {
       bz = leg.sz;
     }
   }
+  // Hands are not perfect: lesser skills land a little off where they meant to.
+  if (skill.jitter > 0) {
+    const a = team.rng.next() * Math.PI * 2;
+    const d = team.rng.next() * skill.jitter;
+    bx += Math.cos(a) * d;
+    bz += Math.sin(a) * d;
+  }
   out.tx = bx;
   out.tz = bz;
   return found;
@@ -463,7 +470,8 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
         b.t = t + skill.react;
         pickTarget(team, w, course, dyn, i, b);
       }
-      if (decide && leg.forced <= 0 && targetBad(w, course, dyn, b.tx, b.tz, skill, t, true) >= 100) pickTarget(team, w, course, dyn, i, b);
+      // Re-aim when the spot went bad, or when the body moved on and the foot can no longer reach it.
+      if (decide && leg.forced <= 0 && (targetBad(w, course, dyn, b.tx, b.tz, skill, t, true) >= 100 || (!leg.valid && leg.sw > 0.3))) pickTarget(team, w, course, dyn, i, b);
       hipWorld(w, i, hipS);
       const cy = Math.cos(w.yaw);
       const sy = Math.sin(w.yaw);
@@ -503,7 +511,9 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
     const rz = leg.fz - hipS.z;
     const along = (rx * cy + rz * sy) * team.intentF + (-rx * sy + rz * cy) * team.intentR; // positive: foot ahead
     const d = Math.hypot(rx, rz);
-    const fresh = Math.max(0.1, Math.min(1, 1 + along / Math.max(0.5, skill.stride)));
+    let fresh = Math.max(0.1, Math.min(1, 1 + along / Math.max(0.5, skill.stride)));
+    // Slippery footing: push gently unless braced, or the foot slides out from under you.
+    if (skill.foresight >= 1 && leg.grip < 0.6 && leg.brace <= 0) fresh *= 0.35;
     // Steer: the nose turns toward the intent when front and rear legs push opposite ways.
     const heading = Math.atan2(team.intentR, team.intentF);
     const steer = Math.max(-1, Math.min(1, heading / 0.5)) * 0.55 * (C.HIPS[i][0] > 0 ? 1 : -1);
@@ -517,7 +527,7 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
     }
     inp.lift = false;
     const base = baseSurface(leg.surf);
-    if (skill.foresight >= 1 && leg.braceCd <= 0 && (base === C.S.ICE || (base === C.S.SHORE && isWet(leg.surf)) || w.gust > 0.7 || w.margin < -0.25)) inp.brace = true;
+    if (skill.foresight >= 1 && leg.braceCd <= 0 && ((leg.grip < 0.7 && (w.gust > 0.3 || Math.hypot(w.windX, w.windZ) > 0.4)) || (base === C.S.ICE && w.margin < 0.2) || w.margin < -0.25)) inp.brace = true;
     if (!decide || !going) continue;
     // Prefer a crawl gait: rear legs first, then the other side.
     const rear = C.HIPS[i][0] < 0;

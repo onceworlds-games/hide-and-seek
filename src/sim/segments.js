@@ -335,15 +335,16 @@ export const TEMPLATES = {
     const len = 30;
     corridor(ctx, x0, x0 + len, 9, S.VOID, VOID_DEPTH);
     corridor(ctx, x0, x0 + 3, 7);
-    const spacing = 2.6 + tier * 0.35;
-    const r = 1.5 - tier * 0.15;
+    const spacing = 2.6 + Math.min(3, tier) * 0.35 + (tier > 3 ? 0.2 : 0);
+    const r = 1.5 - Math.min(3, tier) * 0.15 - (tier > 3 ? 0.05 : 0);
     let x = x0 + 3 + spacing * 0.6;
     setPath(ctx, x0, x0 + len, (xx) => wander(ctx, xx, 1));
     while (x < x0 + len - 3) {
       const pz = ctx.path[Math.min(ctx.path.length - 1, Math.round(x))];
-      // sea stacks washed by the tide: wet and slippery at high water
-      fillDisc(ctx.t, x, pz - 1.5, r, S.SHORE, ctx.elev + 0.2);
-      fillDisc(ctx.t, x + rng.range(-0.5, 0.5), pz + 1.5, r, S.SHORE, ctx.elev + 0.2);
+      // sea stacks: the tide laps at them, the wind leans on you
+      const top = ctx.elev + (tier >= 4 ? 0.15 : 0.3); // the tide washes over them only at its peak
+      fillDisc(ctx.t, x, pz - 1.5, r, S.STONE, top);
+      fillDisc(ctx.t, x + rng.range(-0.5, 0.5), pz + 1.5, r, S.STONE, top);
       x += spacing;
     }
     corridor(ctx, x0 + len - 3, x0 + len, 7);
