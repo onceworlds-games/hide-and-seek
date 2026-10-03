@@ -104,8 +104,8 @@ export const FEET = {
   std: { name: 'Rubber', cost: 0 },
   claws: { name: 'Claws', cost: 120, iceGrip: 0.65 },
   pads: { name: 'Pads', cost: 120, sinkMult: 0.35 },
-  suction: { name: 'Suction', cost: 140, slopeMult: 0.25, windMult: 0.6 },
-  springs: { name: 'Springs', cost: 160, swingMult: 0.72, hoverBounce: true },
+  suction: { name: 'Suction', cost: 140, slopeMult: 0.25, windHold: 1.6 }, // holds slopes and gusts
+  springs: { name: 'Springs', cost: 160, swingMult: 0.72, stunMult: 0.4 }, // a burned foot springs straight back out
 };
 export const HIPS_LEVELS = [
   { name: 'Standard', cost: 0, reach: 0 },

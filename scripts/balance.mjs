@@ -134,28 +134,39 @@ function checkSolo(rows) {
   console.log(problems.length ? `\nSOLO:\n  ${problems.join('\n  ')}` : '\nSolo: no walls.');
 }
 
+// Each feet type has a home: claws the ice, suction the gusts (both Salt Pans), springs the lava (a
+// burned foot springs back), pads the mud (Clay Flats, where nobody fails: they pay in time). Average
+// teams already finish most courses, so the study plays novice teams, who have something to gain.
+const FEET_HOME = { claws: 1, pads: 0, springs: 2, suction: 1 };
+
 function feetStudy() {
-  console.log('\nFeet study (average teams on expeditions 3-4 of each biome; success and time vs rubber feet):');
-  console.log('  biome            base        | claws          pads           suction        springs');
-  const seeds = quick ? 4 : 8;
+  console.log('\nFeet study (novice teams on expeditions 3-4 of each biome: success, tumbles and time vs rubber feet):');
+  console.log(`  biome            base         | ${Object.keys(FEET_HOME).map((f) => f.padEnd(19)).join(' ')}`.replace(/ +$/, ''));
+  const seeds = quick ? 8 : 16;
+  const problems = [];
   for (let b = 0; b < BIOMES.length; b++) {
     const courses = [buildCourse({ kind: 'expedition', biome: b, index: 2 }), buildCourse({ kind: 'expedition', biome: b, index: 3 })];
     const base = [];
-    for (const course of courses) for (let k = 0; k < seeds; k++) base.push(playTeam(course, 1, k));
+    for (const course of courses) for (let k = 0; k < seeds; k++) base.push(playTeam(course, 0, k));
     const bs = stats(base);
     const cells = [];
-    for (const feet of ['claws', 'pads', 'suction', 'springs']) {
+    for (const feet of Object.keys(FEET_HOME)) {
       const cfg = defaultCfg();
       cfg.feet = [feet, feet, feet, feet];
       const runs = [];
-      for (const course of courses) for (let k = 0; k < seeds; k++) runs.push(playTeam(course, 1, k, cfg));
+      for (const course of courses) for (let k = 0; k < seeds; k++) runs.push(playTeam(course, 0, k, cfg));
       const st = stats(runs);
-      const d = st.success - bs.success;
-      const dt = bs.time && st.time ? st.time - bs.time : 0;
-      cells.push(`${(d >= 0 ? '+' : '') + Math.round(d * 100)}pt ${(dt >= 0 ? '+' : '') + Math.round(dt)}s`.padEnd(14));
+      const d = Math.round((st.success - bs.success) * 100);
+      const dtb = st.tumbles - bs.tumbles;
+      const dt = bs.time && st.time ? Math.round(st.time - bs.time) : 0;
+      cells.push(`${(d >= 0 ? '+' : '') + d}pt ${(dtb >= 0 ? '+' : '') + dtb.toFixed(1)}tb ${(dt >= 0 ? '+' : '') + dt}s`.padEnd(19));
+      const paysInTime = bs.success >= 0.95 && dt <= -5;
+      if (FEET_HOME[feet] === b && d < 6 && !paysInTime) problems.push(`${feet} only ${d} points in its home, ${BIOMES[b].name}`);
+      if (FEET_HOME[feet] !== b && d > 12) problems.push(`${feet} ${d} points outside its home, in ${BIOMES[b].name}`);
     }
-    console.log(`  ${BIOMES[b].name.padEnd(16)} ${pct(bs.success)} ${f0(bs.time)}s | ${cells.join(' ')}`);
+    console.log(`  ${BIOMES[b].name.padEnd(16)} ${pct(bs.success)} ${f1(bs.tumbles)}tb | ${cells.join(' ')}`);
   }
+  console.log(problems.length ? `  FEET: ${problems.join('; ')}` : '  Every feet type pays at home and not much elsewhere.');
 }
 
 function validate() {

@@ -169,7 +169,7 @@ function burn(w, leg, why, dyn) {
     w.cargo.wF += 0.8;
   }
   leg.st = ST.STUN;
-  leg.stun = why === 'hit' ? C.HIT_STUN : C.BURN_STUN;
+  leg.stun = (why === 'hit' ? C.HIT_STUN : C.BURN_STUN) * (why === 'burn' && leg.feet === 'springs' ? C.FEET.springs.stunMult : 1);
   leg.platform = -1;
   leg.sink = 0;
   leg.springT = 0;
@@ -454,7 +454,7 @@ function bodyDynamics(w, course, dyn, dt) {
     sumR += leg.pushR * gp;
     torque += (C.HIPS[i][0] * leg.pushR - C.HIPS[i][1] * leg.pushF) * gp;
     sumGrip += g;
-    resist += g * (leg.feet === 'suction' ? 1.6 : 1);
+    resist += g * (leg.feet === 'suction' ? C.FEET.suction.windHold : 1);
     n++;
     // Low-grip feet slide backward under a push.
     const slide = (1 - Math.min(1, g)) * C.SLIDE_RATE * dt;

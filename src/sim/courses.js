@@ -45,9 +45,9 @@ export const EXPEDITIONS = [
   { name: 'Tick Tock', segs: [['gates', 2], ['bars', 2], ['gears', 2], ['swingbars', 2]] },
   { name: 'Mainspring', segs: [['gears', 3], ['bars', 3], ['gates', 3], ['swingbars', 3]] },
   // Storm Coast
-  { name: 'High Tide', segs: [['shore', 2], ['rockfall', 2], ['boulders', 2]] },
-  { name: 'Rolling Stones', segs: [['boulders', 3], ['wind', 2], ['rockfall', 3]] },
-  { name: 'Sea Spray', segs: [['shore', 3], ['stones', 2], ['rockfall', 3]] },
+  { name: 'High Tide', segs: [['shore', 2], ['rockfall', 3], ['boulders', 2]] },
+  { name: 'Rolling Stones', segs: [['boulders', 4], ['wind', 2], ['rockfall', 3]] },
+  { name: 'Sea Spray', segs: [['shore', 3], ['stones', 3], ['rockfall', 3]] },
   { name: 'The Great Stride', segs: [['stride', 3], ['rockfall', 4], ['stride', 4]], budget: 3 }, // three tumbles and the sea keeps you
 ];
 
