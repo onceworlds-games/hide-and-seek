@@ -37,6 +37,16 @@ export function createRun(opts) {
   cam.st.reduced = !!opts.reduced;
   cam.snap(sim.w);
   gfx.setBiome(course.biome);
+  // a warm rim light from beyond the machine, wherever the camera is: its outline lifts off the ground
+  const rim = new THREE.DirectionalLight(0xffd9a0, quality === 'low' ? 0.7 : 1.0);
+  gfx.scene.add(rim, rim.target);
+  const placeRim = (w) => {
+    const dx = w.x - gfx.camera.position.x;
+    const dz = w.z - gfx.camera.position.z;
+    const l = Math.hypot(dx, dz) || 1;
+    rim.position.set(w.x + (dx / l) * 18, w.y + 7, w.z + (dz / l) * 18);
+    rim.target.position.set(w.x, w.y, w.z);
+  };
 
   const run = {
     sim,
@@ -88,6 +98,7 @@ export function createRun(opts) {
       fx.update(dt, gfx.camera);
       fx.setHeight(gfx.state.height);
       cam.update(w, course, dt, sim.dyn);
+      placeRim(w);
       gfx.followSun(w.x, w.z);
       gfx.sky.follow(gfx.camera.position.x, 0, gfx.camera.position.z);
     },
@@ -104,6 +115,7 @@ export function createRun(opts) {
       decor.update(run.time, w.x);
       fx.update(dt, gfx.camera);
       cam.orbitAround(w.x, w.y - 0.4, w.z, 10.5, run.celebAngle, 3.4);
+      placeRim(w);
       const W = window.innerWidth || 1;
       const H = window.innerHeight || 1;
       // the receipt sits low on an upright screen (the machine above it), on the left on a wide one
@@ -111,6 +123,10 @@ export function createRun(opts) {
       else gfx.camera.setViewOffset(W, H, -Math.min(260, W * 0.27), 0, W, H);
       gfx.followSun(w.x, w.z);
       gfx.sky.follow(gfx.camera.position.x, 0, gfx.camera.position.z);
+    },
+    /** Aim the rim light from wherever the camera now is (posters move the camera themselves). */
+    aimRim() {
+      placeRim(run.view);
     },
     setQuality(q) {
       fx.setBudget(q === 'low' ? 0.4 : q === 'medium' ? 0.7 : 1);
@@ -149,6 +165,8 @@ export function createRun(opts) {
     },
     dispose() {
       gfx.camera.clearViewOffset();
+      gfx.scene.remove(rim, rim.target);
+      rim.dispose();
       run.setGhost(null);
       gfx.scene.remove(terrain.group);
       terrain.dispose();

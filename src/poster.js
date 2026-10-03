@@ -84,6 +84,7 @@ const SCENES = {
     gfx.camera.lookAt(w.x + 1.2, w.y - 0.4, w.z - 0.2);
     gfx.camera.fov = 42;
     gfx.camera.updateProjectionMatrix();
+    run.aimRim();
     gfx.render();
   },
   // A tumble in slow motion: the walker tipping, feet and dust in the air.
@@ -106,6 +107,7 @@ const SCENES = {
     gfx.camera.lookAt(w.x, w.y + 0.3, w.z + 0.5);
     gfx.camera.fov = 46;
     gfx.camera.updateProjectionMatrix();
+    run.aimRim();
     gfx.render();
   },
   // The foundry: vents firing, sparks, the walker crossing grates.
@@ -130,6 +132,7 @@ const SCENES = {
     gfx.camera.lookAt(w.x + 2, w.y - 0.5, w.z + 0.5);
     gfx.camera.fov = 46;
     gfx.camera.updateProjectionMatrix();
+    run.aimRim();
     gfx.render();
   },
   // The workshop: the walker on the bench, in teal paint with a crown.
@@ -142,6 +145,7 @@ const SCENES = {
     ws.setLook(save);
     gfx.setBiome(0);
     for (let i = 0; i < 20; i++) ws.update(1 / 30, gfx, 'workshop');
+    gfx.camera.clearViewOffset(); // the hub's framing beside its panel is not the poster's
     gfx.camera.position.set(7.5, 4.2, 6.5);
     gfx.camera.lookAt(0, 1.3, 0);
     gfx.camera.fov = 44;
