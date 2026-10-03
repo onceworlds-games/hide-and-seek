@@ -62,6 +62,11 @@ export function createScene(canvas) {
   scene.add(sun);
   scene.add(sun.target);
 
+  // One warm rim light for whatever is on screen (the workshop or a run aims it): it always exists,
+  // so the light count never changes and no material recompiles when the screen does.
+  const rim = new THREE.DirectionalLight(0xffd9a0, 0);
+  scene.add(rim, rim.target);
+
   const sky = makeSky();
   scene.add(sky.mesh);
 
@@ -71,6 +76,7 @@ export function createScene(canvas) {
     camera,
     sun,
     hemi,
+    rim,
     sky,
     quality: 'high',
     width: 1,

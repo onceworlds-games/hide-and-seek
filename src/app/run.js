@@ -38,9 +38,9 @@ export function createRun(opts) {
   cam.snap(sim.w);
   gfx.setBiome(course.biome);
   // a warm rim light from beyond the machine, wherever the camera is: its outline lifts off the ground
-  const rim = new THREE.DirectionalLight(0xffd9a0, quality === 'low' ? 0.45 : 0.6);
-  gfx.scene.add(rim, rim.target);
+  const rim = gfx.rim;
   const placeRim = (w) => {
+    rim.intensity = quality === 'low' ? 0.45 : 0.6;
     const dx = w.x - gfx.camera.position.x;
     const dz = w.z - gfx.camera.position.z;
     const l = Math.hypot(dx, dz) || 1;
@@ -166,8 +166,6 @@ export function createRun(opts) {
     },
     dispose() {
       gfx.camera.clearViewOffset();
-      gfx.scene.remove(rim, rim.target);
-      rim.dispose();
       run.setGhost(null);
       gfx.scene.remove(terrain.group);
       terrain.dispose();
