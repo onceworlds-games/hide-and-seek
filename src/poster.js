@@ -55,7 +55,7 @@ function frame(gfx, run, w, dtSteps = 2) {
 const SCENES = {
   // The cover: the four-colour walker mid-stride over stepping stones, cargo wobbling, dust up.
   async thumb1(gfx) {
-    const { run, sim } = playedRun(gfx, { kind: 'expedition', biome: 0, index: 2 }, 18);
+    const { run, sim } = playedRun(gfx, { kind: 'expedition', biome: 0, index: 2 }, 11); // mid-way over the mud stones
     const w = sim.w;
     // one leg in the air, cargo leaning: a stride caught mid-step
     const l = w.legs[1];
