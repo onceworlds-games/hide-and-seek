@@ -492,6 +492,7 @@ function disposeRun(app) {
 /** The match ended: results come from room state (written by the host before endMatch). */
 function leaveMatch(app, prev) {
   const r = app.room?.state.results;
+  app.net?.clearCheckpoint();
   disposeRun(app);
   app.finishing = false;
   app.screen = 'workshop';

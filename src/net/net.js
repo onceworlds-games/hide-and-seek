@@ -1,9 +1,10 @@
 // The room protocol. Room state (host-written): `setup` (the host's picks), `seats` (leg ->
-// player id), `run` (the match's authoritative description, keyed by match id), `snap` (a full
-// sim checkpoint every 2 s so a new host adopts the walker), `results` (keyed by match id).
-// Presence: every player's stick, lift and brace at up to 20 Hz. Messages: input edges to the
-// host, 20 Hz views and event batches from the host, signals from anyone. Every value that comes
-// from another page is validated here before the sim sees it.
+// player id), `run` (the match's authoritative description, keyed by match id), `results` (keyed
+// by match id). The host's private value `snap` is a full sim checkpoint every 2 s: only the next
+// host ever reads it (the room hands it over before the `host` event), so it never churns shared
+// state. Presence: every player's stick, lift and brace at up to 20 Hz. Messages: input edges to
+// the host, 20 Hz views and event batches from the host, signals from anyone. Every value that
+// comes from another page is validated here before the sim sees it.
 import { encodeView, decodeView, blankView, lerpView, copyView } from './codec.js';
 import { snapshot, restore, setHumanInput, clearHumanInput, signalSim, requestReset } from '../sim/sim.js';
 import { FEET, SIGNAL_KEYS } from '../sim/constants.js';
@@ -110,6 +111,8 @@ export function createNet(room, app) {
     setup: cleanSetup(room.state.setup),
     run: cleanRun(room.state.run),
     presence: { st: 'title', leg: -1, feet: 'std', s: [0, 0], l: 0, b: 0, paint: 'orange' },
+    hostNow: room.host,
+    prevHost: null,
   };
 
   const on = (ev, fn) => net.offs.push(room.on(ev, fn));
@@ -126,8 +129,6 @@ export function createNet(room, app) {
       app.onRunState?.(net.run);
     } else if (key === 'results') {
       app.onResults?.(value);
-    } else if (key === 'snap') {
-      app.onCheckpoint?.(value);
     }
   });
   on('message', (data, from, at, matchTime) => {
@@ -176,7 +177,14 @@ export function createNet(room, app) {
     app.onLeave?.(p);
   });
   on('join', (p) => app.onJoin?.(p));
-  on('host', () => app.onHost?.(room.isHost && room.connected));
+  on('host', () => {
+    // remember whose checkpoint to adopt: the host before this one
+    if (room.host !== net.hostNow) {
+      net.prevHost = net.hostNow;
+      net.hostNow = room.host;
+    }
+    app.onHost?.(room.isHost && room.connected);
+  });
   on('disconnect', () => app.onHost?.(false));
   on('reconnect', () => {
     net.seats = cleanSeats(room.state.seats);
@@ -336,14 +344,39 @@ export function createNet(room, app) {
       }
       if (nowMs - net.lastStateT >= 2000) {
         net.lastStateT = nowMs;
-        room.setState('snap', { mid: net.run?.mid ?? '', s: snapshot(sim) });
+        const value = { mid: net.run?.mid ?? '', s: snapshot(sim) };
+        // a private value holds 4 KB; the slab timers are the only part that grows with the course
+        if (JSON.stringify(value).length > 3800) value.s.crumble = value.s.gone = [];
+        room.setPrivate('snap', value);
       }
     },
-    /** A new host adopts the room's checkpoint (if it is for this match). */
+    /** The host's checkpoint is done with (the match ended): don't keep it in the room. */
+    clearCheckpoint() {
+      if (isObj(room.private?.snap)) room.setPrivate('snap', null);
+    },
+    /**
+     * A new host adopts the walker from a checkpoint for this match: the previous host's, else its own
+     * (a reloaded solo host), else the newest one anyone holds (everyone reloaded at once).
+     */
     adoptCheckpoint(sim, mid) {
-      const s = room.state.snap;
-      if (isObj(s) && s.mid === mid && isObj(s.s)) return restore(sim, s.s);
-      return false;
+      const ok = (s) => isObj(s) && s.mid === mid && isObj(s.s) && Array.isArray(s.s.legs);
+      const of = (id) => {
+        try {
+          return id === me ? room.private?.snap : room.privateOf?.(id)?.snap;
+        } catch {
+          return null;
+        }
+      };
+      let pick = net.prevHost ? of(net.prevHost) : null;
+      if (!ok(pick)) pick = of(me);
+      if (!ok(pick)) {
+        pick = null;
+        for (const id of room.players.keys()) {
+          const s = of(id);
+          if (ok(s) && (!pick || num(s.s.t, 0, 36000) > num(pick.s.t, 0, 36000))) pick = s;
+        }
+      }
+      return pick ? restore(sim, pick.s) : false;
     },
     /** Client: the interpolated view for drawing, 100 ms behind the newest snapshot. */
     clientView(dtSeconds) {
