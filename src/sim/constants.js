@@ -28,7 +28,7 @@ export const LEG_COLORS = ['#f0702a', '#22a0a0', '#f2c53d', '#f07aa8'];
 export const LEG_MARKS = ['circle', 'square', 'triangle', 'star'];
 
 // Body motion.
-export const PUSH_GAIN = 2.9; // four full pushes on clay: 2.9 m/s
+export const PUSH_GAIN = 2.2; // four full pushes on clay: 2.2 m/s
 export const PUSH_STROKE = 2.2; // a foot this far behind its hip has little push left (it needs a step)
 export const PUSH_MIN = 0.2;
 export const YAW_GAIN = 0.9; // rad/s per unit moment

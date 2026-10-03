@@ -10,7 +10,7 @@ import { pathZ } from './courses.js';
 // Bots step with human hands: a reaction before a foot moves, hazards read a little late (`late`, s),
 // feet landing a little off. What they have that people don't is one head for four legs.
 export const SKILLS = [
-  { name: 'novice', react: 0.42, stride: 1.5, speed: 0.58, err: 0.3, foresight: 0, trot: false, think: 0.15, safety: -0.3, jitter: 0.45, late: 0.3 },
+  { name: 'novice', react: 0.42, stride: 1.5, speed: 0.72, err: 0.3, foresight: 0, trot: false, think: 0.15, safety: -0.3, jitter: 0.45, late: 0.3 },
   { name: 'average', react: 0.26, stride: 1.95, speed: 0.85, err: 0.05, foresight: 1, trot: false, think: 0.1, safety: -0.1, jitter: 0.28, late: 0.18 },
   { name: 'pro', react: 0.18, stride: 2.1, speed: 1, err: 0, foresight: 2, trot: true, think: 0.1, safety: -0.2, jitter: 0.12, late: 0.08 },
 ];

@@ -551,12 +551,11 @@ function constraints(w, n) {
           w.vx += nx * away * share * 0.6;
           w.vz += nz * away * share * 0.6;
         }
-      } else if (hd < C.L_MIN * 0.5) {
-        const excess = C.L_MIN * 0.5 - hd;
-        w.x -= nx * excess * share;
-        w.z -= nz * excess * share;
-        leg.fx += nx * excess * (1 - share);
-        leg.fz += nz * excess * (1 - share);
+      } else if (d < C.L_MIN) {
+        // A leg can't fold shorter than L_MIN: the hip rides up over its foot (it passes over it, as
+        // walking does; a sideways shove here pinned the body behind its own feet).
+        w.y += C.L_MIN - d;
+        if (w.vy < 0) w.vy = 0;
       }
     }
   }

@@ -20,7 +20,7 @@ const CARGO_BY_INDEX = (biome, index) => ['passengers', 'lanterns', biome % 2 ==
 // Hand-authored recipes: [template, tier] in order. Checkpoints are inserted by the builder.
 export const EXPEDITIONS = [
   // Clay Flats
-  { name: 'First Steps', segs: [['hills', 1], ['mud', 1], ['stones', 1]] },
+  { name: 'First Steps', segs: [['hills', 1], ['mud', 1], ['hills', 1], ['stones', 1]] },
   { name: 'Puddle Run', segs: [['hills', 1], ['mud', 2], ['stones', 1], ['ridge', 1]] },
   { name: 'Stone Hop', segs: [['stones', 1], ['hills', 2], ['stones', 2], ['ridge', 1]] },
   { name: 'Clay Crown', segs: [['ridge', 2], ['stones', 2], ['hills', 2], ['mud', 2]] },
@@ -28,15 +28,15 @@ export const EXPEDITIONS = [
   { name: 'Thin Ice', segs: [['ice', 1], ['hills', 1], ['wind', 1], ['ice', 1]] },
   { name: 'Crosswind', segs: [['wind', 1], ['iceridge', 1], ['ice', 2], ['ridge', 2]] },
   { name: 'White Out', segs: [['ice', 2], ['iceridge', 2], ['wind', 2], ['stones', 2]] },
-  { name: 'Salt Crust', segs: [['iceridge', 2], ['ice', 2], ['iceridge', 3]] },
+  { name: 'Salt Crust', segs: [['iceridge', 2], ['ice', 2], ['iceridge', 2]] },
   // Foundry
-  { name: 'Grate Expectations', segs: [['grates', 1], ['vents', 1], ['conveyor', 1], ['grates', 1]] },
-  { name: 'Steam Shift', segs: [['vents', 2], ['platforms', 1], ['pistons', 1], ['grates', 2]] },
-  { name: 'Belt Line', segs: [['conveyor', 2], ['platforms', 2], ['vents', 2], ['pistons', 2]] },
-  { name: 'Full Furnace', segs: [['platforms', 3], ['vents', 3], ['conveyor', 3], ['pistons', 3], ['vents', 2]] },
+  { name: 'Grate Expectations', segs: [['grates', 1], ['vents', 1], ['conveyor', 1], ['pistons', 1], ['grates', 1]] },
+  { name: 'Steam Shift', segs: [['vents', 2], ['platforms', 1], ['pistons', 1], ['conveyor', 2], ['grates', 2]] },
+  { name: 'Belt Line', segs: [['conveyor', 2], ['platforms', 2], ['vents', 2], ['grates', 2], ['pistons', 2]] },
+  { name: 'Full Furnace', segs: [['platforms', 3], ['vents', 3], ['conveyor', 3], ['pistons', 3], ['vents', 3]] },
   // Ravine
-  { name: 'Loose Footing', segs: [['springs', 1], ['crumble', 1], ['gap', 1], ['rockfall', 1]] },
-  { name: 'Two Across', segs: [['gap', 2], ['crumble', 2], ['rails', 1], ['springs', 2]] },
+  { name: 'Loose Footing', segs: [['springs', 1], ['crumble', 1], ['gap', 1], ['rails', 1], ['rockfall', 1]] },
+  { name: 'Two Across', segs: [['gap', 2], ['crumble', 2], ['rails', 1], ['rockfall', 2], ['springs', 2]] },
   { name: 'Narrow Rails', segs: [['rails', 2], ['rockfall', 2], ['gap', 2], ['crumble', 2]] },
   { name: 'Last Bridge', segs: [['crumble', 3], ['rails', 3], ['gap', 3], ['rockfall', 3], ['crumble', 3]] },
   // Clockwork Hills
@@ -47,7 +47,7 @@ export const EXPEDITIONS = [
   // Storm Coast
   { name: 'High Tide', segs: [['shore', 2], ['rockfall', 3], ['boulders', 2]] },
   { name: 'Rolling Stones', segs: [['boulders', 4], ['wind', 2], ['rockfall', 3]] },
-  { name: 'Sea Spray', segs: [['shore', 3], ['stones', 3], ['rockfall', 3]] },
+  { name: 'Sea Spray', segs: [['shore', 3], ['stones', 3], ['wind', 2], ['rockfall', 3]] },
   { name: 'The Great Stride', segs: [['stride', 3], ['rockfall', 4], ['stride', 4]], budget: 3 }, // three tumbles and the sea keeps you
 ];
 
@@ -234,20 +234,20 @@ function biomeOf(tpl, fallback) {
 // gold is what a team of four good players does, silver an average team. Solo (Pilot mode): gold is a
 // steady pilot with the Master's bots, silver with the Journeyman's.
 const PAR = {
-  'e1-1': [87, 100], 'e1-2': [137, 158], 'e1-3': [115, 132], 'e1-4': [142, 163],
-  'e2-1': [107, 123], 'e2-2': [126, 145], 'e2-3': [124, 146], 'e2-4': [121, 150],
-  'e3-1': [96, 110], 'e3-2': [98, 113], 'e3-3': [95, 109], 'e3-4': [131, 151],
-  'e4-1': [91, 105], 'e4-2': [90, 104], 'e4-3': [101, 116], 'e4-4': [125, 145],
-  'e5-1': [114, 131], 'e5-2': [108, 124], 'e5-3': [105, 121], 'e5-4': [109, 125],
-  'e6-1': [113, 132], 'e6-2': [120, 138], 'e6-3': [88, 102], 'e6-4': [134, 154],
+  'e1-1': [91, 105], 'e1-2': [122, 140], 'e1-3': [92, 106], 'e1-4': [129, 148],
+  'e2-1': [97, 112], 'e2-2': [115, 132], 'e2-3': [116, 138], 'e2-4': [120, 146],
+  'e3-1': [105, 121], 'e3-2': [106, 122], 'e3-3': [105, 121], 'e3-4': [113, 130],
+  'e4-1': [97, 112], 'e4-2': [113, 130], 'e4-3': [87, 100], 'e4-4': [101, 118],
+  'e5-1': [95, 109], 'e5-2': [91, 105], 'e5-3': [94, 108], 'e5-4': [94, 108],
+  'e6-1': [91, 105], 'e6-2': [128, 147], 'e6-3': [91, 105], 'e6-4': [123, 141],
 };
 const PAR_SOLO = {
-  'e1-1': [70, 85], 'e1-2': [98, 117], 'e1-3': [95, 114], 'e1-4': [101, 122],
-  'e2-1': [98, 117], 'e2-2': [122, 148], 'e2-3': [121, 144], 'e2-4': [125, 163],
-  'e3-1': [77, 91], 'e3-2': [80, 98], 'e3-3': [80, 92], 'e3-4': [104, 125],
-  'e4-1': [79, 93], 'e4-2': [77, 93], 'e4-3': [80, 99], 'e4-4': [105, 126],
-  'e5-1': [96, 116], 'e5-2': [95, 119], 'e5-3': [93, 113], 'e5-4': [96, 116],
-  'e6-1': [88, 102], 'e6-2': [95, 117], 'e6-3': [78, 91], 'e6-4': [107, 136],
+  'e1-1': [71, 83], 'e1-2': [77, 90], 'e1-3': [74, 85], 'e1-4': [82, 94],
+  'e2-1': [85, 99], 'e2-2': [108, 128], 'e2-3': [118, 145], 'e2-4': [133, 155],
+  'e3-1': [83, 95], 'e3-2': [83, 98], 'e3-3': [83, 96], 'e3-4': [87, 105],
+  'e4-1': [82, 95], 'e4-2': [87, 101], 'e4-3': [69, 80], 'e4-4': [88, 102],
+  'e5-1': [78, 90], 'e5-2': [78, 90], 'e5-3': [73, 90], 'e5-4': [75, 99],
+  'e6-1': [77, 91], 'e6-2': [111, 128], 'e6-3': [77, 89], 'e6-4': [95, 115],
 };
 function parOf(kind, biome, index, total, solo) {
   const id = expeditionId(biome, index);
