@@ -431,7 +431,6 @@ function applyOwners(app, run) {
   const leg = run.owners.indexOf(me);
   app.pilot = run.pilot === me;
   app.myLeg = app.pilot ? app.run.sim.pilotLeg : leg;
-  const participant = app.room.isParticipant?.(me) ?? app.room.participants.includes(me);
   app.watching = !app.pilot && leg < 0;
   app.run.myLeg = app.myLeg;
   app.run.pilot = app.pilot;
@@ -441,7 +440,7 @@ function applyOwners(app, run) {
   app.hud.st.watching = app.watching;
   app.hud.st.labels = run.owners.map((o) => (o === 'bot' ? 'Bot' : app.room.players.get(o)?.name ?? ''));
   app.input.setTouch(app.watching ? null : app.pilot ? 'pilot' : 'leg');
-  if (app.watching) app.screens.watching(!participant || true, app.joinRequested);
+  if (app.watching) app.screens.watching(true, app.joinRequested);
   else if (app.screens.name === 'watching') app.screens.clear();
 }
 

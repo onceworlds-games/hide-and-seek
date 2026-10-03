@@ -13,7 +13,7 @@ import { DT, FEET } from '../src/sim/constants.js';
 
 const arg = process.argv[2] ?? '';
 const quick = arg === 'quick';
-const SEEDS = quick ? 2 : 4;
+const SEEDS = Number(process.env.SEEDS ?? (quick ? 2 : 4));
 const MAX_T = 420;
 
 function playRun(course, skill, seed, cfg) {
