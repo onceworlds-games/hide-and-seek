@@ -1,0 +1,8 @@
+{
+  "slug": "legwork",
+  "name": "Legwork",
+  "description": "Four players, four legs, one very large machine.",
+  "dir": "dist",
+  "productionBranch": "main",
+  "genre": "Party"
+}
