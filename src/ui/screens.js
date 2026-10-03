@@ -164,12 +164,6 @@ export function createScreens(root, app) {
       inv.style.marginTop = '8px';
       seats.appendChild(inv);
     }
-    if (m.humans === 1) {
-      const note = el('div', 'chips');
-      note.style.marginTop = '8px';
-      note.appendChild(el('span', 'chip', 'Pilot: you steer, three bots step'));
-      seats.appendChild(note);
-    }
     grid.appendChild(seats);
     // --- Upgrades (own save)
     const up = el('div', 'panel');
