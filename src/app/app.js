@@ -694,12 +694,18 @@ function throttle(app, key, ms) {
 /** Host: watchers who asked to join take bot legs at this checkpoint. */
 function admitPending(app) {
   if (!app.hosting || !app.run) return;
+  let admitted = false;
   for (const id of app.pendingJoins) {
     if (!app.room.players.get(id)) continue;
     const leg = app.net.admitPlayer(id, app.run.sim);
-    if (leg >= 0) app.hud.flash('A LEG JOINS', 900);
+    if (leg >= 0) {
+      admitted = true;
+      app.hud.flash('A LEG JOINS', 900);
+    }
   }
   app.pendingJoins.clear();
+  // the host's own state writes are not echoed back: take the new owners (and the end of pilot mode) here
+  if (admitted && app.net.run) applyOwners(app, app.net.run);
 }
 
 /** Host: the run is over -> results into room state, then the room goes back to the lobby. */
