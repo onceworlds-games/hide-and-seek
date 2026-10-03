@@ -77,7 +77,7 @@ export const SURFACES = [
   { id: 'platform', grip: 1.0, sound: 'metal', safe: true },
   { id: 'crumble', grip: 1.0, sound: 'stone', safe: true, crumbles: true },
   { id: 'conveyor', grip: 1.0, sound: 'metal', safe: true },
-  { id: 'shore', grip: 0.9, sound: 'clay', safe: true, wetGrip: 0.35 },
+  { id: 'shore', grip: 0.9, sound: 'clay', safe: true, wetGrip: 0.5 },
   { id: 'stone', grip: 1.0, sound: 'stone', safe: true },
 ];
 
@@ -126,7 +126,7 @@ export const MECHANIC_LEVELS = [
 ];
 
 // Expeditions.
-export const TUMBLE_BUDGET = 8;
+export const TUMBLE_BUDGET = 6;
 export const ENDLESS_BUDGET = 6;
 export const CHECKPOINT_EVERY = 55; // metres (about 40 s)
 

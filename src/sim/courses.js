@@ -21,14 +21,14 @@ const CARGO_BY_INDEX = (biome, index) => ['passengers', 'lanterns', biome % 2 ==
 export const EXPEDITIONS = [
   // Clay Flats
   { name: 'First Steps', segs: [['hills', 1], ['mud', 1], ['stones', 1]] },
-  { name: 'Puddle Run', segs: [['hills', 1], ['mud', 2], ['stones', 1], ['ridge', 1], ['mud', 1]] },
-  { name: 'Stone Hop', segs: [['stones', 1], ['hills', 2], ['stones', 2], ['ridge', 1], ['mud', 2]] },
-  { name: 'Clay Crown', segs: [['ridge', 2], ['stones', 2], ['hills', 2], ['mud', 3], ['stones', 2]] },
+  { name: 'Puddle Run', segs: [['hills', 1], ['mud', 2], ['stones', 1], ['ridge', 1]] },
+  { name: 'Stone Hop', segs: [['stones', 1], ['hills', 2], ['stones', 2], ['ridge', 1]] },
+  { name: 'Clay Crown', segs: [['ridge', 2], ['stones', 2], ['hills', 2], ['mud', 3]] },
   // Salt Pans
   { name: 'Thin Ice', segs: [['ice', 1], ['hills', 1], ['wind', 1], ['ice', 1]] },
   { name: 'Crosswind', segs: [['wind', 1], ['iceridge', 1], ['ice', 2], ['ridge', 2]] },
-  { name: 'White Out', segs: [['ice', 2], ['iceridge', 2], ['wind', 2], ['stones', 2], ['ice', 2]] },
-  { name: 'Salt Crust', segs: [['iceridge', 2], ['wind', 3], ['ice', 3], ['ridge', 3], ['iceridge', 3]] },
+  { name: 'White Out', segs: [['ice', 2], ['iceridge', 2], ['wind', 2], ['stones', 2]] },
+  { name: 'Salt Crust', segs: [['iceridge', 2], ['wind', 2], ['ice', 3], ['iceridge', 3]] },
   // Foundry
   { name: 'Grate Expectations', segs: [['grates', 1], ['vents', 1], ['conveyor', 1], ['grates', 1]] },
   { name: 'Steam Shift', segs: [['vents', 2], ['platforms', 1], ['pistons', 1], ['grates', 2]] },
@@ -37,18 +37,18 @@ export const EXPEDITIONS = [
   // Ravine
   { name: 'Loose Footing', segs: [['springs', 1], ['crumble', 1], ['gap', 1], ['rockfall', 1]] },
   { name: 'Two Across', segs: [['gap', 2], ['crumble', 2], ['rails', 1], ['springs', 2]] },
-  { name: 'Narrow Rails', segs: [['rails', 2], ['rockfall', 2], ['gap', 2], ['crumble', 2], ['springs', 2]] },
+  { name: 'Narrow Rails', segs: [['rails', 2], ['rockfall', 2], ['gap', 2], ['crumble', 2]] },
   { name: 'Last Bridge', segs: [['crumble', 3], ['rails', 3], ['gap', 3], ['rockfall', 3], ['crumble', 3]] },
   // Clockwork Hills
   { name: 'Cogs', segs: [['hills', 2], ['gears', 1], ['bars', 1], ['gates', 1]] },
   { name: 'Pendulums', segs: [['swingbars', 1], ['gears', 2], ['hills', 2], ['gates', 2]] },
   { name: 'Tick Tock', segs: [['gates', 2], ['bars', 2], ['gears', 2], ['swingbars', 2]] },
-  { name: 'Mainspring', segs: [['gears', 3], ['bars', 3], ['gates', 3], ['swingbars', 3], ['gears', 3]] },
+  { name: 'Mainspring', segs: [['gears', 3], ['bars', 3], ['gates', 3], ['swingbars', 3]] },
   // Storm Coast
   { name: 'High Tide', segs: [['shore', 1], ['rockfall', 1], ['boulders', 1], ['shore', 2]] },
   { name: 'Rolling Stones', segs: [['boulders', 2], ['shore', 2], ['wind', 2], ['rockfall', 2]] },
   { name: 'Sea Spray', segs: [['shore', 3], ['boulders', 2], ['stones', 2], ['rockfall', 3]] },
-  { name: 'The Great Stride', segs: [['shore', 2], ['boulders', 3], ['rockfall', 3], ['stride', 3]] },
+  { name: 'The Great Stride', segs: [['shore', 3], ['boulders', 3], ['stride', 3], ['rockfall', 3], ['stride', 4]] },
 ];
 
 export const MUTATORS = {
@@ -330,6 +330,10 @@ export function findRespawns(course) {
         }
       }
     }
+    // never under a gate or inside a bar's sweep: a respawn there is a trap
+    if (ok) for (const g of course.gates) if (Math.abs(x - g.x) < 5.5) ok = false;
+    if (ok) for (const b of course.bars) if (Math.hypot(x - b.x, z - b.z) < b.len + 2.5) ok = false;
+    if (ok) for (const r of course.rocks) if (Math.hypot(x - r.x, z - r.z) < r.r + 2.5) ok = false;
     if (ok) {
       const ix = toIx(x);
       const iz = toIz(z);

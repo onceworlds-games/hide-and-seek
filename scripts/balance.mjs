@@ -80,23 +80,26 @@ function checkTargets(rows) {
 }
 
 function feetStudy() {
-  console.log('\nFeet study (average bots, success rate vs rubber feet): biome | claws pads suction springs');
+  console.log('\nFeet study (average bots on expeditions 3-4 of each biome; success rate and finishing time vs rubber feet):');
+  console.log('  biome            base      | claws          pads           suction        springs');
   const seeds = quick ? 2 : 3;
   for (let b = 0; b < BIOMES.length; b++) {
     const cells = [];
     const base = [];
-    const courses = [buildCourse({ kind: 'expedition', biome: b, index: 1 }), buildCourse({ kind: 'expedition', biome: b, index: 2 })];
+    const courses = [buildCourse({ kind: 'expedition', biome: b, index: 2 }), buildCourse({ kind: 'expedition', biome: b, index: 3 })];
     for (const course of courses) for (let k = 0; k < seeds; k++) base.push(playRun(course, 1, k, defaultCfg()));
-    const baseRate = stats(base).success;
+    const bs = stats(base);
     for (const feet of ['claws', 'pads', 'suction', 'springs']) {
       const runs = [];
       const cfg = defaultCfg();
       cfg.feet = [feet, feet, feet, feet];
       for (const course of courses) for (let k = 0; k < seeds; k++) runs.push(playRun(course, 1, k, cfg));
-      const d = stats(runs).success - baseRate;
-      cells.push(`${feet}:${(d >= 0 ? '+' : '') + Math.round(d * 100)}`.padEnd(12));
+      const st = stats(runs);
+      const d = st.success - bs.success;
+      const dt = bs.time && st.time ? st.time - bs.time : 0;
+      cells.push(`${(d >= 0 ? '+' : '') + Math.round(d * 100)}pt ${(dt >= 0 ? '+' : '') + Math.round(dt)}s`.padEnd(14));
     }
-    console.log(`  ${BIOMES[b].name.padEnd(16)} base ${pct(baseRate)} | ${cells.join(' ')}`);
+    console.log(`  ${BIOMES[b].name.padEnd(16)} ${pct(bs.success)} ${f1(bs.time)}s | ${cells.join(' ')}`);
   }
 }
 

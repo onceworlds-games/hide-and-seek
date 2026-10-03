@@ -74,7 +74,7 @@ export function createRun(opts) {
       const w = run.view;
       walker.update(w, dt, run.time);
       hud3d.update(w, run.time, run.myLeg);
-      hazards.update(w.t, sim.dyn, terrain.water);
+      hazards.update(w.t, sim.dyn, terrain.water, w);
       decor.update(run.time, w.x);
       fx.update(dt, gfx.camera);
       fx.setHeight(gfx.state.height);

@@ -161,7 +161,7 @@ export function createHazards3d(scene, course, quality, fx) {
 
   return {
     group,
-    update(time, dyn, water) {
+    update(time, dyn, water, w) {
       for (const it of items) {
         if (it.kind === 'platform') {
           platformPose(it.p, time, dyn, pose);
@@ -204,7 +204,10 @@ export function createHazards3d(scene, course, quality, fx) {
           gateState(it.g, time, hz);
           const closed = !hz.open;
           const drop = closed ? Math.min(1, hz.p * 8) : hz.closing ? 0.15 : Math.max(0, 1 - hz.p * 8);
-          it.bar.position.y = it.y + 4.4 - drop * 3.2;
+          let barY = it.y + 4.4 - drop * 3.2;
+          // a bar that closed on the walker rests on its deck
+          if (closed && w && Math.abs(w.x - it.g.x) < 2.3 && w.tumbling <= 0) barY = Math.max(barY, w.y + 0.95);
+          it.bar.position.y = barY;
           it.lamp.material.emissive.set(closed ? 0xf0702a : hz.closing ? 0xf2c53d : 0x3fcf9a);
         } else if (it.kind === 'boulder') {
           boulderState(it.b, time, hz);

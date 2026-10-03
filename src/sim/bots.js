@@ -8,9 +8,9 @@ import { ventState, geyserState, barAngle, rockState, boulderState, gateState } 
 import { pathZ } from './courses.js';
 
 export const SKILLS = [
-  { name: 'novice', react: 0.34, stride: 1.5, speed: 0.6, err: 0.15, foresight: 0, trot: false, think: 0.15, safety: 0.04 },
-  { name: 'average', react: 0.2, stride: 1.85, speed: 0.82, err: 0.05, foresight: 1, trot: false, think: 0.1, safety: 0.1 },
-  { name: 'pro', react: 0.1, stride: 2.15, speed: 1, err: 0, foresight: 2, trot: true, think: 0.1, safety: 0.14 },
+  { name: 'novice', react: 0.34, stride: 1.5, speed: 0.58, err: 0.3, foresight: 0, trot: false, think: 0.15, safety: -0.3 },
+  { name: 'average', react: 0.15, stride: 2.0, speed: 0.85, err: 0.05, foresight: 1, trot: false, think: 0.1, safety: -0.1 },
+  { name: 'pro', react: 0.1, stride: 2.15, speed: 1, err: 0, foresight: 2, trot: true, think: 0.1, safety: -0.2 },
 ];
 
 const gS = { h: 0, s: 0, f: -1, platform: -1, conveyor: 0 };
@@ -61,7 +61,7 @@ function computeIntent(team, w, course, humans, autonomous) {
   if (team.skill.foresight >= 2) az -= Math.max(-1.5, Math.min(1.5, w.windZ * 1.2)); // lean upwind
   az = steerClear(team, course, w, ax, az);
   let gx = ax - w.x;
-  let gz = (az - w.z) * 1.6;
+  let gz = (az - w.z) * 2.4;
   const gl = Math.hypot(gx, gz) || 1;
   gx /= gl;
   gz /= gl;
@@ -113,13 +113,38 @@ function computeIntent(team, w, course, humans, autonomous) {
 
 const dynS = { crumble: new Float32Array(0), gone: new Float32Array(0) };
 /** Shift the aim sideways when the ground ahead at that line is deadly, or a boulder owns the lane. */
+function tracksOk(course, w, z, look) {
+  // A rock's landing spot is no place to walk through.
+  if (look >= 4) for (const r of course.rocks) if (r.x > w.x && r.x < w.x + 2.2 + look + 3 && Math.abs(z - r.z) < r.r + 1.4) return false;
+  // Both hip tracks (z +- 1.5) need ground ahead; a single centreline would steer onto one row of a bridge.
+  for (let d = 1; d <= look; d += 1.5) {
+    let any = false;
+    for (const side of [-1.5, 1.5]) {
+      sample(course, dynS, w.t, w.x + 2.2 + d, z + side, gS);
+      if (!isDeadly(baseSurface(gS.s))) any = true;
+    }
+    sample(course, dynS, w.t, w.x + 2.2 + d, z, gS);
+    if (!isDeadly(baseSurface(gS.s))) any = true;
+    if (!any) return false;
+  }
+  for (let d = 1; d <= look; d += 1.5) {
+    let both = true;
+    for (const side of [-1.5, 1.5]) {
+      sample(course, dynS, w.t, w.x + 2.2 + d, z + side, gS);
+      if (isDeadly(baseSurface(gS.s))) both = false;
+    }
+    if (!both) {
+      // a single stone row under the centre counts when nothing else does
+      sample(course, dynS, w.t, w.x + 2.2 + d, z, gS);
+      if (isDeadly(baseSurface(gS.s))) return false;
+    }
+  }
+  return true;
+}
+
 function steerClear(team, course, w, ax, az) {
   const look = team.skill.foresight >= 1 ? 4 : 2;
-  let bad = false;
-  for (let d = 1; d <= look && !bad; d += 1.5) {
-    sample(course, dynS, w.t, w.x + 2.2 + d, az, gS);
-    if (isDeadly(baseSurface(gS.s))) bad = true;
-  }
+  let bad = !tracksOk(course, w, az, look);
   if (!bad && team.skill.foresight >= 1 && course.boulders.length) {
     for (let k = 0; k < course.boulders.length && !bad; k++) {
       const bo = course.boulders[k];
@@ -129,15 +154,11 @@ function steerClear(team, course, w, ax, az) {
     }
   }
   if (!bad) return az;
-  for (let off = 1.5; off <= 7.5; off += 1.5) {
+  for (let off = 1; off <= 7.5; off += 1) {
     for (const side of [1, -1]) {
       const z = az + side * off;
       if (Math.abs(z) > 10) continue;
-      let ok = true;
-      for (let d = 1; d <= look && ok; d += 1.5) {
-        sample(course, dynS, w.t, w.x + 2.2 + d, z, gS);
-        if (isDeadly(baseSurface(gS.s))) ok = false;
-      }
+      let ok = tracksOk(course, w, z, look);
       if (ok && course.boulders.length) for (const bo of course.boulders) if (Math.abs(z - bo.z) <= bo.r + 1.2 && w.x >= bo.x0 - 6 && w.x <= bo.x1) ok = false;
       if (ok) return z;
     }
@@ -351,18 +372,18 @@ export function boulderComing(course, fx, fz, t, lead) {
 
 /** A gate just ahead is closed or closing and the walker is not yet through: wait. */
 export function gateWait(course, w, t) {
+  const front = w.x + 2.3;
   for (let k = 0; k < course.gates.length; k++) {
     const g = course.gates[k];
-    if (g.x < w.x + 2.4 || g.x > w.x + 9) continue;
-    if (g.x > w.x + 6.5) continue;
+    if (g.x <= front || g.x > front + 4.5) continue; // only a gate just ahead of the front
     gateState(g, t, hz);
-    if (!hz.open) return true;
+    if (!hz.open || hz.closing) return true;
   }
   return false;
 }
 
 /** Will a low bar sweep through this foot within half a second? (The jump-rope rule: lift it.) */
-export function barComing(course, fx, fz, t) {
+export function barComing(course, fx, fz, t, lead = 0.5) {
   const bucket = course.dynIndex[Math.max(0, Math.min(course.dynIndex.length - 1, Math.floor(fx / 10)))];
   if (!bucket) return false;
   for (let k = 0; k < bucket.length; k++) {
@@ -372,7 +393,7 @@ export function barComing(course, fx, fz, t) {
     const rz = fz - b.z;
     const d = Math.hypot(rx, rz);
     if (d > b.len + 0.6 || d < 0.3) continue;
-    for (let s = 0.05; s <= 0.5; s += 0.05) {
+    for (let s = 0.05; s <= lead; s += 0.05) {
       const a = barAngle(b, t + s);
       const bx = Math.cos(a);
       const bz = Math.sin(a);
@@ -394,6 +415,7 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
   const t = w.t;
   const intentMag = computeIntent(team, w, course, humans, autonomous);
   const going = intentMag > 0.1 && team.waitUntil < t && !(skill.foresight >= 1 && course.gates.length && gateWait(course, w, t));
+  team.dbg = { going, intentMag };
   const speed = skill.speed * (team.goUntil > t ? 1.25 : 1) * (going ? Math.max(0.35, intentMag) : 0);
   // Stuck watch: no progress for a while with everything planted -> ask for a stance reset.
   if (w.maxX > team.lastMaxX + 0.2) {
@@ -452,17 +474,20 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
       const swingT = C.SWING_T * (leg.feet === 'springs' ? C.FEET.springs.swingMult : 1);
       const ready = leg.sw >= swingT && t >= b.t && leg.forced <= 0;
       let valid = leg.valid;
-      // A foot with nowhere to go doesn't hang forever: after a while it takes the hip's ground (a burn beats a deadlock).
+      // A foot with nowhere to go doesn't hang forever: it comes back under the hip, and if even that
+      // ground is bad for long, it plants anyway (a burn beats a deadlock).
       if (ready && !valid) {
         b.hover += dt;
         if (b.hover > 1.6) {
           b.tx = hipS.x;
           b.tz = hipS.z;
           inp.x = inp.y = 0;
-          valid = true;
+          if (b.hover > 3.5) valid = true;
         }
       } else b.hover = 0;
-      inp.lift = !(ready && valid);
+      // Never plant into a sweep, a shadow or a lane: hover until it has passed.
+      const incoming = skill.foresight >= 1 && ((course.bars.length && barComing(course, b.tx, b.tz, t, 0.25)) || (course.rocks.length && rockComing(course, b.tx, b.tz, t, 0.6)) || (course.boulders.length && boulderComing(course, b.tx, b.tz, t, 1.2)));
+      inp.lift = !(ready && valid) || incoming;
       if (!inp.lift) {
         b.plan = 'hold';
         b.hover = 0;
@@ -551,7 +576,7 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
         // The body tolerates the COM up to COM_MARGIN outside the polygon before it starts to tip.
         const m = marginWithout(w, leg) + C.COM_MARGIN;
         safe = m > skill.safety - (air === 1 ? 0.1 : 0);
-        if (!safe && w.planted >= 3 && candScore[n] > 3.5) safe = m > -0.15; // a leg in trouble lifts anyway
+        if (!safe && w.planted >= 3 && candScore[n] > 3.5) safe = m > -0.45; // a leg in trouble lifts anyway
       }
       if (!safe) continue;
       liftNow(team, w, course, dyn, leg, inputs, t);
@@ -574,7 +599,7 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
         const rx = leg.fx - hipS.x;
         const rz = leg.fz - hipS.z;
         const along = (rx * cy + rz * sy) * team.intentF + (-rx * sy + rz * cy) * team.intentR;
-        if (along > skill.stride * 0.5) continue;
+        if (along > skill.stride * 0.75) continue;
         if (marginWithout(w, i) + C.COM_MARGIN <= skill.safety) continue;
         if (along < helperAlong) {
           helperAlong = along;

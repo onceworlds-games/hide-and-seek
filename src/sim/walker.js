@@ -41,7 +41,7 @@ export function createWalker(course, cfg) {
     planted: 4, margin: 1, comX: 0, comZ: 0, hull: new Float64Array(8), hullN: 0,
     groove: 0, grooveStreak: 0, grooveBest: 0, grooveSum: 0, lastPlantT: -10, lastPlantLeg: -1, lastInterval: 0, steps: 0,
     finished: false, finishT: 0, over: false, overWhy: '', cp: 0, maxX: course.startX, resetCd: 0, belly: 0, airT: 0,
-    windX: 0, windZ: 0, gust: 0,
+    windX: 0, windZ: 0, gust: 0, gateJam: -1,
     events: [],
     cfg,
   };
@@ -133,6 +133,14 @@ function leaveSlab(w, leg, dyn) {
 
 function burn(w, leg, why, dyn) {
   leaveSlab(w, leg, dyn);
+  if (why !== 'hit' && leg.st === ST.STANCE) {
+    // the machine lurches away from a foot that just lost its footing
+    const dx = w.x - leg.fx;
+    const dz = w.z - leg.fz;
+    const l = Math.hypot(dx, dz) || 1;
+    nudgeTip(w, dx / l, dz / l, 5);
+    w.cargo.wF += 0.8;
+  }
   leg.st = ST.STUN;
   leg.stun = why === 'hit' ? C.HIT_STUN : C.BURN_STUN;
   leg.platform = -1;
@@ -624,7 +632,7 @@ function hazardsOnBody(w, course, dyn, dt) {
       if (!hz.landed) continue;
       for (let i = 0; i < 4; i++) {
         const leg = w.legs[i];
-        if (leg.st !== ST.STUN && Math.hypot(leg.fx - o.x, leg.fz - o.z) < o.r) burn(w, leg, 'hit', dyn);
+        if (leg.st === ST.STANCE && Math.hypot(leg.fx - o.x, leg.fz - o.z) < o.r) burn(w, leg, 'hit', dyn);
       }
       const d = Math.hypot(w.x - o.x, w.z - o.z);
       if (d < o.r + 1.5) {
@@ -662,22 +670,23 @@ function hazardsOnBody(w, course, dyn, dt) {
       }
     } else if (o.kind === 'gate') {
       gateState(o, w.t, hz);
+      const half = C.CHASSIS_L / 2 + 0.1;
       if (hz.open) continue;
-      // A closed gate is a wall in front of the walker; a gate that closes on it pins the feet under the bars.
-      const half = C.CHASSIS_L / 2 + 0.4;
-      if (w.x > o.x - half && w.x < o.x - half + 0.6) {
+      const front = w.x + half;
+      if (front > o.x && front - o.x < 0.7 && w.vx >= -0.01) {
+        // A closed gate is a wall for a walker arriving at it (or one that had barely crossed): it holds the front.
         w.x = o.x - half;
         if (w.vx > 0) w.vx = 0;
-      }
-      if (hz.p < 0.05) {
-        for (let i = 0; i < 4; i++) {
-          const leg = w.legs[i];
-          if (leg.st === ST.STANCE && Math.abs(leg.fx - o.x) < 0.5 && leg.hitCd <= 0) {
-            leg.hitCd = 1.5;
-            burn(w, leg, 'hit', dyn);
-          }
+      } else if (front > o.x && w.x - half < o.x) {
+        // It closed on the chassis: the bar rests on the deck (a jolt for the cargo), the walker keeps moving.
+        if (w.gateJam !== o.id) {
+          w.gateJam = o.id;
+          w.cargo.wF += 2.2;
+          w.events.push({ type: 'gate', x: o.x, z: 0 });
         }
+        continue;
       }
+      if (w.gateJam === o.id && (w.x - half > o.x || front < o.x)) w.gateJam = -1;
     } else if (o.kind === 'boulder') {
       boulderState(o, w.t, hz);
       if (!hz.active) continue;

@@ -140,7 +140,7 @@ export const TEMPLATES = {
   vents(ctx, x0, tier, rng) {
     const len = 20;
     corridor(ctx, x0, x0 + len, 7, S.GRATE, ctx.elev);
-    const n = 2 + tier * 2;
+    const n = 3 + tier * 2;
     for (let i = 0; i < n; i++) {
       const id = ctx.vents.length;
       const vx = x0 + 4 + ((i + 0.5) * (len - 7)) / n;
@@ -202,7 +202,7 @@ export const TEMPLATES = {
     corridor(ctx, x0, x0 + 3, 7);
     // Two rows of slabs, one per foot track, so a slab only ever carries one foot's timer.
     const pitch = tier === 3 ? 2.2 : 2;
-    const slabW = tier === 1 ? 1.6 : tier === 2 ? 1.3 : 1.1;
+    const slabW = tier === 1 ? 2.0 : tier === 2 ? 1.7 : 1.45;
     for (let x = x0 + 3; x < x0 + len - 3; x += pitch) {
       for (const zc of [-1.5, 1.5]) {
         const id = ctx.stones++;
@@ -233,17 +233,17 @@ export const TEMPLATES = {
   rockfall(ctx, x0, tier, rng) {
     const len = 20;
     corridor(ctx, x0, x0 + len, 6);
-    const n = 2 + tier;
+    const n = 1 + tier;
     for (let i = 0; i < n; i++) {
       const id = ctx.rocks.length;
-      ctx.rocks.push({ id, kind: 'rock', x: x0 + 4 + ((i + 0.5) * (len - 6)) / n, z: rng.range(-3, 3), r: 2.2, period: 3.4 - tier * 0.3, phase: rng.range(0, 6.28), lead: 1.4 });
+      ctx.rocks.push({ id, kind: 'rock', x: x0 + 4 + ((i + 0.5) * (len - 6)) / n, z: rng.range(-3, 3), r: 2.0, period: 4.2 - tier * 0.4, phase: rng.range(0, 6.28), lead: 1.4 });
     }
     setPath(ctx, x0, x0 + len, (x) => wander(ctx, x, 2));
     return len;
   },
   rails(ctx, x0, tier, rng) {
     const len = 20;
-    const w = tier === 1 ? 1.5 : tier === 2 ? 1.2 : 0.95;
+    const w = tier === 1 ? 1.7 : tier === 2 ? 1.4 : 1.15;
     corridor(ctx, x0, x0 + len, 9, S.VOID, VOID_DEPTH);
     corridor(ctx, x0, x0 + 3, 7);
     fillRect(ctx.t, x0 + 3, x0 + len - 3, -1.5 - w / 2, -1.5 + w / 2, S.STONE, ctx.elev + 0.05);
@@ -276,7 +276,7 @@ export const TEMPLATES = {
     const n = Math.min(2, tier);
     for (let i = 0; i < n; i++) {
       const id = ctx.bars.length;
-      ctx.bars.push({ id, kind: 'bar', x: x0 + 5 + ((i + 0.5) * (len - 8)) / n, z: 0, len: 5.5, speed: (0.8 + tier * 0.2) * rng.sign(), phase: rng.range(0, 6.28), swing: false, h: 0.3 });
+      ctx.bars.push({ id, kind: 'bar', x: x0 + 5 + ((i + 0.5) * (len - 8)) / n, z: 0, len: 5, speed: (0.45 + tier * 0.18) * rng.sign(), phase: rng.range(0, 6.28), swing: false, h: 0.3 });
     }
     setPath(ctx, x0, x0 + len, () => 0);
     return len;
@@ -284,11 +284,11 @@ export const TEMPLATES = {
   swingbars(ctx, x0, tier, rng) {
     const len = 20;
     corridor(ctx, x0, x0 + len, 6.5);
-    const n = tier;
+    const n = Math.min(2, tier);
     for (let i = 0; i < n; i++) {
       const id = ctx.bars.length;
       const side = rng.sign();
-      ctx.bars.push({ id, kind: 'bar', x: x0 + 5 + ((i + 0.5) * (len - 8)) / n, z: side * 7, len: 9, speed: 1.1 + tier * 0.2, phase: rng.range(0, 6.28), swing: true, h: 0.3 });
+      ctx.bars.push({ id, kind: 'bar', x: x0 + 5 + ((i + 0.5) * (len - 8)) / n, z: side * 7, len: 9, speed: 0.65 + tier * 0.15, phase: rng.range(0, 6.28), swing: true, h: 0.3 });
     }
     setPath(ctx, x0, x0 + len, () => 0);
     return len;
@@ -296,10 +296,13 @@ export const TEMPLATES = {
   gates(ctx, x0, tier, rng) {
     const len = 20;
     corridor(ctx, x0, x0 + len, 6);
-    const n = 1 + Math.min(2, tier);
+    // A green wave: every gate in the segment opens one beat after the one before it.
+    const n = tier;
+    const period = 8.5 - tier * 0.5;
+    const base = rng.range(0, 6.28);
     for (let i = 0; i < n; i++) {
       const id = ctx.gates.length;
-      ctx.gates.push({ id, kind: 'gate', x: x0 + 6 + i * ((len - 8) / n), period: 8 - tier * 0.6, phase: rng.range(0, 6.28), open: 0.5 });
+      ctx.gates.push({ id, kind: 'gate', x: x0 + 5 + i * ((len - 6) / n), period, phase: base - i * period * 0.2, open: 0.5 });
     }
     setPath(ctx, x0, x0 + len, () => 0);
     return len;
@@ -332,18 +335,21 @@ export const TEMPLATES = {
     const len = 30;
     corridor(ctx, x0, x0 + len, 9, S.VOID, VOID_DEPTH);
     corridor(ctx, x0, x0 + 3, 7);
-    const spacing = 2.7 + tier * 0.2;
-    const r = 1.45 - tier * 0.1;
+    const spacing = 2.6 + tier * 0.35;
+    const r = 1.5 - tier * 0.15;
     let x = x0 + 3 + spacing * 0.6;
     setPath(ctx, x0, x0 + len, (xx) => wander(ctx, xx, 1));
     while (x < x0 + len - 3) {
       const pz = ctx.path[Math.min(ctx.path.length - 1, Math.round(x))];
-      fillDisc(ctx.t, x, pz - 1.5, r, S.STONE, ctx.elev + 0.2);
-      fillDisc(ctx.t, x + rng.range(-0.5, 0.5), pz + 1.5, r, S.STONE, ctx.elev + 0.2);
+      // sea stacks washed by the tide: wet and slippery at high water
+      fillDisc(ctx.t, x, pz - 1.5, r, S.SHORE, ctx.elev + 0.2);
+      fillDisc(ctx.t, x + rng.range(-0.5, 0.5), pz + 1.5, r, S.SHORE, ctx.elev + 0.2);
       x += spacing;
     }
     corridor(ctx, x0 + len - 3, x0 + len, 7);
-    ctx.winds.push({ x0: x0 + 3, x1: x0 + len - 3, z0: -12, z1: 12, dx: 0, dz: rng.sign(), base: 0.35, gust: 1 + tier * 0.4, period: 4, phase: rng.range(0, 6.28) });
+    if (!ctx.water) ctx.water = { base: ctx.elev - 0.9, amp: 0.8 + tier * 0.15, speed: 0.5, phase: rng.range(0, 6.28) };
+    const wt = Math.min(3, tier);
+    ctx.winds.push({ x0: x0 + 3, x1: x0 + len - 3, z0: -12, z1: 12, dx: 0, dz: rng.sign(), base: 0.2 + wt * 0.1, gust: 0.6 + wt * 0.3, period: 4, phase: rng.range(0, 6.28) });
     return len;
   },
   goal(ctx, x0) {
