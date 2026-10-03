@@ -1,0 +1,200 @@
+// A run on screen: the course and walker rendered, the fixed-step clock, inputs fed to the
+// sim (host) or to the network (client), and the sim's events turned into dust, sparks,
+// shakes and sounds. The sim itself never knows any of this exists.
+import { DT, CARGO } from '../sim/constants.js';
+import { createSim, stepSim, setHumanInput, drainEvents, setPilotLeg, requestReset, signalSim } from '../sim/sim.js';
+import { ST } from '../sim/walker.js';
+import { buildTerrain } from '../render/terrain3d.js';
+import { createWalker3d } from '../render/walker3d.js';
+import { createHud3d } from '../render/hud3d.js';
+import { createHazards3d } from '../render/hazards3d.js';
+import { createDecor } from '../render/decor.js';
+import { createFx } from '../render/fx.js';
+import { createChaseCamera } from '../render/camera.js';
+import { LEG_HEX } from '../render/scene.js';
+
+const SURF_FX = { 0: 'dust', 1: 'salt', 2: 'mud', 3: 'spark', 4: 'dust', 7: 'spark', 8: 'debris', 9: 'spark', 10: 'splash', 11: 'dust' };
+
+/**
+ * opts: { gfx, course, cfg, owners, pilot, botSkill, seed, look, myLeg, audio, quality, reduced, onEvent }
+ */
+export function createRun(opts) {
+  const { gfx, course } = opts;
+  const quality = opts.quality ?? 'high';
+  const sim = createSim({ course, cfg: opts.cfg, owners: opts.owners, pilot: opts.pilot, botSkill: opts.botSkill, seed: opts.seed, autonomous: opts.autonomous });
+  const terrain = buildTerrain(course, quality);
+  gfx.scene.add(terrain.group);
+  const fx = createFx(gfx.scene, quality === 'low' ? 250 : 700);
+  fx.setBudget(quality === 'low' ? 0.4 : quality === 'medium' ? 0.7 : 1);
+  const hazards = createHazards3d(gfx.scene, course, quality, fx);
+  const decor = createDecor(gfx.scene, course, course.biome, quality);
+  const walker = createWalker3d(gfx.scene, { ...opts.look, cargo: course.cargo });
+  const hud3d = createHud3d(gfx.scene);
+  hud3d.setBlob(quality === 'low');
+  const cam = createChaseCamera(gfx.camera);
+  cam.st.reduced = !!opts.reduced;
+  cam.snap(sim.w);
+  gfx.setBiome(course.biome);
+
+  const run = {
+    sim,
+    walker,
+    cam,
+    fx,
+    hud3d,
+    accumulator: 0,
+    time: 0,
+    view: sim.w, // what the renderer draws: the sim's walker (host) or an interpolated snapshot (client)
+    hostMode: true,
+    myLeg: opts.myLeg ?? 0,
+    pilot: !!opts.pilot,
+    paused: false,
+    slowMo: 0,
+    events: [],
+    stepsSinceLift: 0,
+    lastEventT: {},
+    /** Advance the clock. Host: steps the sim. Client: the net layer sets `view` itself. */
+    update(dtRaw, input) {
+      const dt = Math.min(dtRaw, 0.25); // a hidden tab comes back calm, not ten seconds at once
+      run.time += dt;
+      if (run.hostMode && !run.paused) {
+        run.accumulator += dt;
+        let steps = 0;
+        while (run.accumulator >= DT && steps < 15) {
+          if (input) feedInput(run, input);
+          stepSim(sim);
+          run.accumulator -= DT;
+          steps++;
+        }
+        if (run.accumulator > DT) run.accumulator = 0; // slow-motion catch-up is worse than a skip
+        handleEvents(run, drainEvents(sim), opts);
+      }
+    },
+    render(dt, hudInfo) {
+      const w = run.view;
+      walker.update(w, dt, run.time);
+      hud3d.update(w, run.time, run.myLeg);
+      hazards.update(w.t, sim.dyn, terrain.water);
+      decor.update(run.time, w.x);
+      fx.update(dt, gfx.camera);
+      fx.setHeight(gfx.state.height);
+      cam.update(w, course, dt, sim.dyn);
+      gfx.followSun(w.x, w.z);
+      gfx.sky.follow(gfx.camera.position.x, 0, gfx.camera.position.z);
+    },
+    setQuality(q) {
+      fx.setBudget(q === 'low' ? 0.4 : q === 'medium' ? 0.7 : 1);
+      hud3d.setBlob(q === 'low');
+    },
+    dispose() {
+      gfx.scene.remove(terrain.group);
+      terrain.dispose();
+      hazards.dispose();
+      decor.dispose();
+      walker.dispose();
+      hud3d.dispose();
+      fx.dispose();
+    },
+  };
+  return run;
+}
+
+function feedInput(run, input) {
+  const sim = run.sim;
+  const leg = run.pilot ? 0 : run.myLeg;
+  if (leg < 0) return;
+  setHumanInput(sim, leg, { x: input.st.x, y: input.st.y, lift: input.st.lift, brace: input.st.brace });
+  if (input.st.cycle && run.pilot) {
+    setPilotLeg(sim, sim.pilotLeg + 1);
+    input.st.cycle = false;
+    run.events.push({ type: 'cycle', leg: sim.pilotLeg });
+  }
+  if (input.st.reset) {
+    input.st.reset = false;
+    if (requestReset(sim)) run.events.push({ type: 'resetDone' });
+  }
+  if (input.st.signal) {
+    signalSim(sim, input.st.signal);
+    run.events.push({ type: 'signal', kind: input.st.signal, leg });
+    input.st.signal = null;
+  }
+  run.myLeg = run.pilot ? sim.pilotLeg : run.myLeg;
+}
+
+/** Turn sim events into particles, camera shake and a call to the app (sound, hints, hud). */
+export function handleEvents(run, events, opts) {
+  const { fx, cam } = run;
+  for (const e of events) {
+    switch (e.type) {
+      case 'plant': {
+        const kind = SURF_FX[e.surf] ?? 'dust';
+        fx.spawn(e.wet ? 'splash' : kind, e.x, e.y + 0.1, e.z, kind === 'spark' ? 6 : 8, { radius: 0.5 });
+        break;
+      }
+      case 'lift':
+        fx.spawn('dust', e.x, e.y + 0.05, e.z, 3, { radius: 0.3, up: 0.6 });
+        break;
+      case 'burn':
+        fx.spawn('smoke', e.x, e.y + 0.3, e.z, 14, { radius: 0.5 });
+        fx.spawn('lava', e.x, e.y + 0.3, e.z, 10, { radius: 0.4 });
+        cam.shake(0.5);
+        break;
+      case 'fall':
+      case 'soak':
+        fx.spawn(e.type === 'soak' ? 'splash' : 'dust', e.x, e.y + 0.3, e.z, 12, { radius: 0.6 });
+        cam.shake(0.4);
+        break;
+      case 'hit':
+        fx.spawn('dust', e.x, e.y + 0.2, e.z, 10, { radius: 0.6 });
+        cam.shake(0.6);
+        break;
+      case 'snap':
+        fx.spawn('spark', e.x, e.y + 0.2, e.z, 5, { radius: 0.3 });
+        break;
+      case 'spring':
+        fx.spawn('dust', e.x, e.y + 0.1, e.z, 16, { radius: 0.8, up: 2 });
+        cam.shake(0.3);
+        break;
+      case 'pop':
+        fx.spawn('mud', e.x, e.y + 0.1, e.z, 14, { radius: 0.5 });
+        break;
+      case 'crack':
+        fx.spawn('debris', e.x, e.y + 0.1, e.z, 4, { radius: 0.5, up: 0.5 });
+        break;
+      case 'tumble':
+        cam.shake(1.4);
+        fx.spawn('dust', e.x, run.view.y - 1, e.z, 40, { radius: 2.5, spread: 2.5 });
+        run.slowMo = 0.5;
+        break;
+      case 'respawn':
+        fx.spawn('star', e.x, 2, e.z, 24, { radius: 2, spread: 2 });
+        break;
+      case 'rockhit':
+      case 'boulderhit':
+        cam.shake(0.9);
+        break;
+      case 'barhit':
+        cam.shake(0.5);
+        break;
+      case 'spill':
+        fx.spawn(e.mode === 'crack' ? 'splash' : 'star', run.view.x, run.view.y + 1.5, run.view.z, 16, { radius: 0.8, spread: 2, color: e.mode === 'crack' ? [1, 0.9, 0.5] : [1, 0.6, 0.3] });
+        cam.shake(0.3);
+        break;
+      case 'checkpoint':
+        fx.spawn('star', run.view.x, run.view.y + 2, run.view.z, 30, { radius: 3, spread: 3 });
+        break;
+      case 'finish':
+        fx.spawn('star', run.view.x, run.view.y + 2, run.view.z, 80, { radius: 4, spread: 4, life: 1.6 });
+        break;
+      default:
+        break;
+    }
+    if (opts.onEvent) {
+      try {
+        opts.onEvent(e);
+      } catch {}
+    }
+  }
+}
+
+export { ST, CARGO, LEG_HEX };

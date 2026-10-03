@@ -1,8 +1,36 @@
 {
   "slug": "legwork",
   "name": "Legwork",
-  "description": "Four players, four legs, one very large machine.",
+  "description": "Four players, four legs, one very large machine. Carry the cargo across clay, ice, lava and clockwork without going over.",
   "dir": "dist",
   "productionBranch": "main",
-  "genre": "Party"
+  "genre": "Party",
+  "icon": "store/icon.png",
+  "thumbnails": ["store/thumb-1.png", "store/thumb-2.png", "store/thumb-3.png", "store/thumb-4.png"],
+  "controls": [
+    { "keys": ["W", "A", "S", "D"], "action": "Aim the foot, push the body" },
+    { "keys": ["Space"], "action": "Hold to lift, release to plant" },
+    { "keys": ["Shift"], "action": "Brace (double grip, 1 s)" },
+    { "keys": ["Q"], "action": "Signal wheel (hold)" },
+    { "keys": ["1", "2", "3", "4"], "action": "Lift! Plant! Go! Wait!" },
+    { "keys": ["5", "6", "7", "8"], "action": "Left! Right! Help! Nice!" },
+    { "keys": ["Tab"], "action": "Next leg (pilot mode)" },
+    { "keys": ["R"], "action": "Reset stance" },
+    { "keys": ["[", "]"], "action": "Orbit camera" },
+    { "keys": ["Enter"], "action": "Start (host)" }
+  ],
+  "help": "Each player is one leg. A planted foot pushes where you aim; a lifted foot flies where you aim, and lands when you let go. Keep the dot inside the polygon or the machine tips. Keep stepping in rhythm for the groove. Alone, the stick steers and bots step: hold Lift to take a foot.",
+  "badges": [
+    { "id": "first-step", "name": "First Step", "description": "Finish First Steps.", "icon": "store/badges/first-step.png" },
+    { "id": "in-step", "name": "In Step", "description": "Hold the groove for 30 seconds.", "icon": "store/badges/in-step.png" },
+    { "id": "four-legs-good", "name": "Four Legs Good", "description": "Finish an expedition with four humans.", "icon": "store/badges/four-legs-good.png" },
+    { "id": "nothing-spilled", "name": "Nothing Spilled", "description": "Finish with the cargo untouched.", "icon": "store/badges/nothing-spilled.png" },
+    { "id": "mud-lover", "name": "Mud Lover", "description": "Cross the Clay Flats through the mud without a tumble.", "icon": "store/badges/mud-lover.png" },
+    { "id": "ice-skater", "name": "Ice Skater", "description": "Cross the Salt Pans without a tumble.", "icon": "store/badges/ice-skater.png" },
+    { "id": "hot-foot", "name": "Hot Foot", "description": "Cross the Foundry without a burned foot.", "icon": "store/badges/hot-foot.png" },
+    { "id": "tumble-king", "name": "Tumble King", "description": "Ten tumbles in one run. Embrace it.", "icon": "store/badges/tumble-king.png" },
+    { "id": "solo-stride", "name": "Solo Stride", "description": "Finish an expedition alone.", "icon": "store/badges/solo-stride.png" },
+    { "id": "great-stride", "name": "Great Stride", "description": "Finish The Great Stride.", "icon": "store/badges/great-stride.png" },
+    { "id": "gold-rush", "name": "Gold Rush", "description": "Ten gold medals.", "icon": "store/badges/gold-rush.png" }
+  ]
 }
