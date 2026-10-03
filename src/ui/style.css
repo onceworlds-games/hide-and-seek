@@ -22,8 +22,12 @@ canvas#hud { position: fixed; inset: 0; width: 100%; height: 100%; pointer-event
 #ui { position: fixed; inset: 0; pointer-events: none; }
 #ui > * { pointer-events: auto; }
 button { font: inherit; }
+button:focus { outline: none; }
+button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
 .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: calc(16px + var(--safe-t)) calc(16px + var(--safe-r)) calc(16px + var(--safe-b)) calc(16px + var(--safe-l)); }
+.screen.title { justify-content: flex-start; padding-top: calc(12vh + var(--safe-t)); }
+.screen.title .btn.big { margin-top: 42vh; }
 .screen.lobby { justify-content: flex-start; padding-bottom: calc(96px + var(--safe-b)); overflow: hidden; }
 .title-word { font-family: var(--display); font-size: clamp(56px, 14vw, 128px); line-height: 0.9; color: var(--cream); -webkit-text-stroke: 2px var(--ink); text-shadow: 0 6px 0 var(--terracotta), 0 8px 0 var(--ink); letter-spacing: 0.02em; margin: 0; text-align: center; }
 .sub { font-family: var(--display); font-size: clamp(14px, 3vw, 20px); color: var(--ink); background: var(--brass); padding: 4px 14px; border-radius: 6px; margin-top: 10px; letter-spacing: 0.08em; }

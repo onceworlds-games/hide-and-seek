@@ -76,15 +76,14 @@ const SCENES = {
     run.fx.spawn('dust', w.legs[0].fx, w.legs[0].fy + 0.1, w.legs[0].fz, 24, { radius: 0.6, spread: 1.6 });
     run.fx.spawn('mud', w.legs[2].fx, w.legs[2].fy + 0.1, w.legs[2].fz, 14, { radius: 0.5 });
     run.fx.update(0.25, gfx.camera);
-    gfx.camera.position.set(w.x - 9.5, w.y + 4.2, w.z + 8.5);
-    gfx.camera.lookAt(w.x + 1.5, w.y - 0.2, w.z);
-    gfx.camera.fov = 44;
-    gfx.camera.updateProjectionMatrix();
+    l.fy += 0.35;
     run.walker.update(w, 0.016, 3.1);
     run.hud3d.update(w, 3.1, 1);
     run.render(0.016);
-    gfx.camera.position.set(w.x - 9.5, w.y + 4.2, w.z + 8.5);
-    gfx.camera.lookAt(w.x + 1.5, w.y - 0.2, w.z);
+    gfx.camera.position.set(w.x - 6.2, w.y + 2.6, w.z + 6.4);
+    gfx.camera.lookAt(w.x + 1.2, w.y - 0.4, w.z - 0.2);
+    gfx.camera.fov = 42;
+    gfx.camera.updateProjectionMatrix();
     gfx.render();
   },
   // A tumble in slow motion: the walker tipping, feet and dust in the air.

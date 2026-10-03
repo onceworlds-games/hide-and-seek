@@ -36,7 +36,7 @@ export function createScreens(root, app) {
   };
 
   function title() {
-    const s = el('div', 'screen');
+    const s = el('div', 'screen title');
     s.appendChild(el('h1', 'title-word', 'LEGWORK'));
     const play = btn('PLAY', 'big', () => app.play());
     s.appendChild(play);

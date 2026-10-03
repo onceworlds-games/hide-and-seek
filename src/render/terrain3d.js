@@ -25,7 +25,7 @@ const WALL = new THREE.Color(PALETTE.terracotta);
 const LAVA_WALL = new THREE.Color(0x6b2a1a);
 const tmpC = new THREE.Color();
 const HALF = CELL / 2;
-const TERRACE = 0.6; // a drop this big is a paper-cut step; less is a slope
+const TERRACE = 1.0; // a drop this big is a paper-cut step; less is a slope
 
 export function buildTerrain(course, quality) {
   const group = new THREE.Group();
