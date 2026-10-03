@@ -114,6 +114,9 @@ export function createScene(canvas) {
     const h = Math.max(1, canvas.clientHeight || window.innerHeight || 1);
     state.width = w;
     state.height = h;
+    // the window may have moved to a screen with another pixel ratio
+    const q = state.quality;
+    renderer.setPixelRatio(Math.max(0.5, settings.pixelRatio(q === 'high' ? 2 : q === 'medium' ? 1.5 : 1)));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.fov = w < h ? 62 : 50;
