@@ -628,6 +628,21 @@ function hintOnce(app, key, text) {
   app.hud.hint(text, 3200);
 }
 
+// The chief engineer: cheerful, fond of the machine, mildly alarmed by everything. Short.
+const VOICE = {
+  tumble: ['OVER SHE GOES', 'WHOOPS-A-DAISY', 'STEADY ON!', 'TIMBER!'],
+  fell: ['INTO THE DRINK', 'MIND THE GAP!', 'WHERE DID THE GROUND GO'],
+  burn: ['HOT FOOT!', 'OUCH, LAVA', 'SIZZLE!'],
+  fall: ['FOOT LOST', 'NOT THAT STONE', 'MIND YOUR STEP'],
+  soak: ['SOAKED', 'WET FOOT', 'TIDE CAME IN'],
+  crack: ['CRACKED!', 'THE EGG!', 'GENTLY!'],
+  spill: ['SPILLED', 'MIND THE CARGO', 'OOPS'],
+  checkpoint: ['CHECKPOINT', 'LOVELY', 'GOOD WORK, LEGS'],
+  finish: ['MADE IT!', 'HOME AND DRY', 'WHAT A MACHINE'],
+};
+let voiceN = 0;
+const say = (kind) => VOICE[kind][voiceN++ % VOICE[kind].length];
+
 /** Sim events (from the local sim or the host's batches): sound, HUD, admits, ghost recording. */
 const RELAY = new Set(['plant', 'lift', 'snap', 'burn', 'fall', 'soak', 'hit', 'spring', 'pop', 'crack', 'collapse', 'geyser', 'bar', 'boulder', 'gate', 'brace', 'slosh', 'spill', 'tumble', 'respawn', 'checkpoint', 'finish', 'over', 'rockhit', 'barhit', 'boulderhit', 'reset']);
 
@@ -655,15 +670,15 @@ function onSimEvent(app, e) {
       break;
     case 'burn':
       a.burn();
-      app.hud.flash(e.why === 'burn' ? 'HOT FOOT' : 'HOT FOOT', 900);
+      app.hud.flash(say('burn'), 900);
       break;
     case 'fall':
       a.fall();
-      app.hud.flash('FOOT LOST', 900);
+      app.hud.flash(say('fall'), 900);
       break;
     case 'soak':
       a.fall();
-      app.hud.flash('SOAKED', 900);
+      app.hud.flash(say('soak'), 900);
       break;
     case 'hit':
       a.hit();
@@ -692,23 +707,23 @@ function onSimEvent(app, e) {
     case 'spill':
       a.spill(e.mode);
       if (e.mode === 'drop' && app.course?.cargo === 'passengers') a.squeal();
-      app.hud.flash(e.mode === 'crack' ? 'CRACKED' : 'SPILLED', 900);
+      app.hud.flash(say(e.mode === 'crack' ? 'crack' : 'spill'), 900);
       break;
     case 'tumble':
       a.tumble();
-      app.hud.flash(e.why === 'fell' ? 'FELL IN' : 'TUMBLE', 1500);
+      app.hud.flash(say(e.why === 'fell' ? 'fell' : 'tumble'), 1600);
       break;
     case 'respawn':
       a.respawn();
       break;
     case 'checkpoint':
       a.checkpoint();
-      app.hud.flash('CHECKPOINT', 1200);
+      app.hud.flash(say('checkpoint'), 1200);
       if (app.hosting) admitPending(app);
       break;
     case 'finish':
       a.finish();
-      app.hud.flash('MADE IT', 2000);
+      app.hud.flash(say('finish'), 2000);
       break;
     case 'over':
       a.over();

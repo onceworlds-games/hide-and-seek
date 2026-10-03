@@ -3,7 +3,6 @@
 // only cue: the COM dot also grows and the polygon pulses when the margin is poor.
 import * as THREE from 'three';
 import { ST } from '../sim/walker.js';
-import { COM_MARGIN } from '../sim/constants.js';
 import { LEG_HEX, PALETTE } from './scene.js';
 import { makeMarkTexture } from './textures.js';
 import { LEG_MARKS, LEG_COLORS } from '../sim/constants.js';
@@ -79,8 +78,9 @@ export function createHud3d(scene) {
         cnt++;
       }
       const groundY = (cnt ? fy / cnt : w.y - 2.1) + 0.06;
-      const good = w.margin > 0.15;
-      const warn = w.margin > -COM_MARGIN;
+      // the same colours as the stance gauge: red only while it is really tipping
+      const good = w.tip <= 2 && w.margin > -0.25;
+      const warn = w.tip <= 2;
       const col = good ? 0x3fcf9a : warn ? 0xf2c53d : 0xf0702a;
       polyMat.color.set(col);
       lineMat.color.set(good ? 0x1f8a8a : warn ? 0xb0841a : 0xc8643c);

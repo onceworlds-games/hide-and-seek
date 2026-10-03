@@ -115,9 +115,10 @@ export function createHud(canvas) {
     ctx.lineWidth = 2;
     roundRect(ctx, cx - (CHASSIS_W / 2) * k, cy0 - (CHASSIS_L / 2) * k, CHASSIS_W * k, CHASSIS_L * k, 4);
     ctx.stroke();
-    // what holds it up
-    const good = w.margin > 0.15;
-    const warn = w.margin > -COM_MARGIN;
+    // what holds it up: red only when it is really going over, amber near the edge of what it tolerates
+    const bad = w.tip > 2;
+    const good = !bad && w.margin > -0.25;
+    const warn = !bad;
     const col = good ? GOOD : warn ? WARN : BAD;
     const n = w.hullN;
     if (n >= 2) {

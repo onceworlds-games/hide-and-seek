@@ -172,7 +172,7 @@ export function snapshot(sim) {
     tum: [r(w.tumbling), w.tumbles],
     legs: w.legs.map((l) => [l.st, r(l.fx), r(l.fy), r(l.fz), r(l.tx), r(l.tz), r(l.sw), r(l.sink), r(l.stun), r(l.brace), r(l.braceCd), l.platform, r(l.forced), r(l.sx), r(l.sz), r(l.lx), r(l.ly), r(l.lz), r(l.reach)]),
     cargo: [r(w.cargo.aF), r(w.cargo.aR), r(w.cargo.wF), r(w.cargo.wR), r(w.cargo.cond), w.cargo.spills],
-    g: [r(w.groove), r(w.grooveBest), r(w.grooveSum), w.steps, r(w.lastPlantT), w.lastPlantLeg, r(w.lastInterval), r(w.grooveStreak)],
+    g: [r(w.groove), r(w.grooveBest), r(w.grooveSum), w.steps, r(w.lastPlantT), w.lastPlantLeg, r(w.lastInterval), r(w.grooveStreak), r(w.prevInterval)],
     run: [w.finished ? 1 : 0, r(w.finishT), w.over ? 1 : 0, w.overWhy, w.cp, r(w.maxX)],
     crumble: Array.from(sim.dyn.crumble, (v) => (v < 0 ? -1 : r(v))),
     gone: Array.from(sim.dyn.gone, (v) => (v < 0 ? -1 : r(v))),
@@ -252,6 +252,7 @@ export function restore(sim, s) {
     w.lastPlantLeg = Number.isInteger(s.g[5]) && s.g[5] >= -1 && s.g[5] <= 3 ? s.g[5] : -1;
     w.lastInterval = clamp(n(s.g[6]), 0, 100);
     w.grooveStreak = clamp(n(s.g[7]), 0, 36000);
+    w.prevInterval = clamp(n(s.g[8]), 0, 100);
   }
   if (Array.isArray(s.run)) {
     w.finished = s.run[0] === 1;

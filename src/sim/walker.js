@@ -39,7 +39,7 @@ export function createWalker(course, cfg) {
     legs: [makeLeg(0), makeLeg(1), makeLeg(2), makeLeg(3)],
     cargo: { aF: 0, aR: 0, wF: 0, wR: 0, cond: 1, spillCd: 0, spills: 0, tiltDeg: 0 },
     planted: 4, margin: 1, comX: 0, comZ: 0, hull: new Float64Array(8), hullN: 0,
-    groove: 0, grooveStreak: 0, grooveBest: 0, grooveSum: 0, lastPlantT: -10, lastPlantLeg: -1, lastInterval: 0, steps: 0,
+    groove: 0, grooveStreak: 0, grooveBest: 0, grooveSum: 0, lastPlantT: -10, lastPlantLeg: -1, lastInterval: 0, prevInterval: 0, steps: 0,
     finished: false, finishT: 0, over: false, overWhy: '', cp: 0, maxX: course.startX, resetCd: 0, belly: 0, airT: 0,
     windX: 0, windZ: 0, gust: 0, gateJam: -1,
     events: [],
@@ -208,17 +208,28 @@ function knock(w, leg, dx, dz, dist, why, dyn) {
   leg.hitCd = 0.8;
 }
 
+/**
+ * The groove rewards rhythm, not just stepping: a step on the beat (within 30% of either of the last
+ * two gaps, so a trot's short-long counts too) raises it, one off the beat lowers it, the same foot
+ * twice drops it. Two feet landing within 0.3 s are one beat.
+ */
 function registerStep(w, i) {
   const now = w.t;
   const interval = now - w.lastPlantT;
-  if (w.lastPlantLeg >= 0 && i !== w.lastPlantLeg && interval >= 0.22 && interval <= 1.7) {
-    const steady = w.lastInterval > 0 && Math.abs(interval - w.lastInterval) < 0.3 * w.lastInterval;
-    w.groove = Math.min(100, w.groove + (steady ? 9 : 4));
-  } else if (i === w.lastPlantLeg) w.groove = Math.max(0, w.groove - 6);
+  w.steps++;
+  if (interval < 0.3 && w.lastPlantLeg >= 0) {
+    w.lastPlantLeg = i;
+    return;
+  }
+  if (w.lastPlantLeg >= 0 && i === w.lastPlantLeg) w.groove = Math.max(0, w.groove - 8);
+  else if (w.lastPlantLeg >= 0 && interval <= 1.7) {
+    const near = (g) => g > 0 && Math.abs(interval - g) < 0.3 * g;
+    w.groove = near(w.lastInterval) || near(w.prevInterval) ? Math.min(100, w.groove + 6) : Math.max(0, w.groove - 6);
+  }
+  w.prevInterval = w.lastInterval;
   w.lastInterval = interval;
   w.lastPlantT = now;
   w.lastPlantLeg = i;
-  w.steps++;
 }
 
 function plant(w, leg, course, dyn) {

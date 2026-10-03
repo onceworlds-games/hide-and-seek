@@ -59,8 +59,14 @@ export function createRun(opts) {
     update(dtRaw, input) {
       const dt = Math.min(dtRaw, 0.25); // a hidden tab comes back calm, not ten seconds at once
       run.time += dt;
+      // a tumble's first moments play slowly: the machine going over is the big moment
+      let simDt = dt;
+      if (run.slowMo > 0) {
+        run.slowMo -= dt;
+        if (!cam.st.reduced) simDt *= 0.35;
+      }
       if (run.hostMode && !run.paused) {
-        run.accumulator += dt;
+        run.accumulator += simDt;
         let steps = 0;
         while (run.accumulator >= DT && steps < 15) {
           if (input) feedInput(run, input);
@@ -221,7 +227,7 @@ export function handleEvents(run, events, opts) {
       case 'tumble':
         cam.shake(1.4);
         fx.spawn('dust', e.x, run.view.y - 1, e.z, 40, { radius: 2.5, spread: 2.5 });
-        run.slowMo = 0.5;
+        run.slowMo = 0.45;
         break;
       case 'respawn':
         fx.spawn('star', e.x, 2, e.z, 24, { radius: 2, spread: 2 });
