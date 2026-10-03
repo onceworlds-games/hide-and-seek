@@ -20,7 +20,6 @@
     { "keys": ["[", "]"], "action": "Orbit camera" },
     { "keys": ["Enter"], "action": "Start (host)" }
   ],
-  "help": "Each player is one leg. A planted foot pushes where you aim; a lifted foot flies where you aim and lands when you let go. Keep the weight dot inside the polygon or the machine goes over. The gauge shows the stance from above: lift when your light is green. Step on the beat for the groove. Alone, the stick steers and bots step: hold Lift to take a foot.",
   "badges": [
     { "id": "first-step", "name": "First Step", "description": "Finish First Steps.", "icon": "store/badges/first-step.png" },
     { "id": "in-step", "name": "In Step", "description": "Hold the groove for 30 seconds.", "icon": "store/badges/in-step.png" },
