@@ -351,8 +351,17 @@ export function createHud(canvas) {
         ctx.fillText(`${Math.floor(w.grooveStreak)} s`, dx + dw - 10, my + mh / 2 + 1);
       }
       // Stance gauge and leg badges under it
-      const gy0 = my + mh + 12;
-      if (compact) {
+      let gy0 = my + mh + 12;
+      if (compact && H < 500) {
+        // a phone on its side: everything in one row along the top, nowhere near the thumbs
+        const S = 84;
+        const gx0 = dx - 12 - S;
+        stanceGauge(w, gx0, dy, S);
+        const bs = 38;
+        const bx = gx0 - 12 - bs * 2 - 8;
+        for (let i = 0; i < 4; i++) badge(w, i, bx + (i % 2) * (bs + 8), dy + Math.floor(i / 2) * (bs + 8), bs);
+        gy0 = dy + S - 112; // hints sit under the row
+      } else if (compact) {
         // [2 x 2 badges][gauge], one row: ends near y 200, above any thumb
         const S = 88;
         stanceGauge(w, W - 12 - S, gy0, S);
