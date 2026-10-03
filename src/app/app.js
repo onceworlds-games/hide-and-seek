@@ -871,6 +871,7 @@ function playFrame(app, dt) {
   if (camIn.orbit) run.cam.orbitBy(camIn.orbit);
   if (camIn.pitch) run.cam.pitchBy(camIn.pitch);
   if (camIn.zoom) run.cam.zoomBy(camIn.zoom);
+  hud.st.auto = app.hosting ? run.sim.auto : null;
   run.render(dt);
   hud.draw(w, app.course, dt, touch);
 }

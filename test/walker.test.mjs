@@ -309,3 +309,18 @@ test('pilot mode: the stick steers the bots, holding Lift takes the highlighted 
   assert.ok(finiteWalker(w));
   assert.equal(w.tumbles, 0);
 });
+
+test('a human leg nobody drives goes to the bots after a while, and comes back on the first touch', () => {
+  const sim = createSim({ course: flat(), owners: ['h0', 'bot', 'bot', 'bot'], botSkill: 2, seed: 'idle', autonomous: true });
+  setHumanInput(sim, 0, { x: 0, y: 0, lift: false, brace: false });
+  run(sim, 3);
+  assert.equal(sim.auto[0], false);
+  run(sim, 7);
+  assert.equal(sim.auto[0], true, 'quiet for ten seconds: autopilot');
+  const x0 = sim.w.x;
+  run(sim, 6);
+  assert.ok(sim.w.x > x0 + 2, `the team kept walking: ${sim.w.x - x0}`);
+  setHumanInput(sim, 0, { x: 0, y: 1, lift: false, brace: false });
+  stepSim(sim);
+  assert.equal(sim.auto[0], false, 'the player is back on the stick');
+});

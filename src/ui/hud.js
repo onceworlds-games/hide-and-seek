@@ -177,6 +177,14 @@ export function createHud(canvas) {
           roundRect(ctx, bx0 - 3, y - 3, size + 6, size + 6, 12);
           ctx.stroke();
         }
+        if (leg.auto || (st.auto && st.auto[i])) {
+          ctx.setLineDash([4, 3]);
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = INK;
+          roundRect(ctx, bx0 + 3, y + 3, size - 6, size - 6, 8);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
         if (leg.sink > 0.1) {
           ctx.fillStyle = '#6b4a2e';
           ctx.fillRect(bx0 + 4, y + size - 7, (size - 8) * leg.sink, 4);

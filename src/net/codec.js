@@ -13,7 +13,7 @@ export function encodeView(sim) {
     type: 'snap',
     t: q(w.t, 1000),
     b: [q(w.x), q(w.y), q(w.z), q(w.yaw, 1000), q(w.pitch, 1000), q(w.roll, 1000), q(w.vx), q(w.vz)],
-    l: w.legs.map((l) => [l.st, q(l.fx), q(l.fy), q(l.fz), q(l.tx), q(l.ty), q(l.tz), (l.valid ? 1 : 0) | (l.absent ? 2 : 0) | (l.slipping ? 4 : 0), q(l.sink), q(l.brace, 10)]),
+    l: w.legs.map((l, i) => [l.st, q(l.fx), q(l.fy), q(l.fz), q(l.tx), q(l.ty), q(l.tz), (l.valid ? 1 : 0) | (l.absent ? 2 : 0) | (l.slipping ? 4 : 0) | (sim.auto[i] ? 8 : 0), q(l.sink), q(l.brace, 10)]),
     c: [q(w.cargo.aF, 1000), q(w.cargo.aR, 1000), q(w.cargo.cond), q(w.cargo.tiltDeg, 10)],
     k: [q(w.tip, 10), q(w.tipDirX), q(w.tipDirZ), q(w.tumbling, 100), w.tumbles, q(w.groove, 10), q(w.margin), q(w.comX), q(w.comZ), w.hullN, w.planted, q(w.belly), q(w.grooveStreak, 10)],
     h: Array.from(w.hull.subarray(0, w.hullN * 2), (v) => q(v)),
@@ -25,7 +25,7 @@ export function blankView() {
   return {
     t: 0, x: 4, y: 2.1, z: 0, yaw: 0, pitch: 0, roll: 0, vx: 0, vy: 0, vz: 0,
     tip: 0, tipDirX: 1, tipDirZ: 0, tumbling: 0, tumbles: 0, groove: 0, grooveStreak: 0, margin: 1, comX: 4, comZ: 0, hullN: 0, hull: new Float64Array(8), planted: 4, belly: 0,
-    legs: [0, 1, 2, 3].map((i) => ({ i, st: ST.STANCE, fx: 0, fy: 0, fz: 0, tx: 0, ty: 0, tz: 0, valid: true, absent: false, slipping: false, sink: 0, brace: 0, stun: 0 })),
+    legs: [0, 1, 2, 3].map((i) => ({ i, st: ST.STANCE, fx: 0, fy: 0, fz: 0, tx: 0, ty: 0, tz: 0, valid: true, absent: false, slipping: false, auto: false, sink: 0, brace: 0, stun: 0 })),
     cargo: { aF: 0, aR: 0, cond: 1, tiltDeg: 0, wF: 0, wR: 0 },
     cp: 0, finished: false, over: false, maxX: 4, windX: 0, windZ: 0, gust: 0, resetCd: 0,
   };
@@ -59,6 +59,7 @@ export function decodeView(m, v, courseLength) {
     l.valid = (flags & 1) !== 0;
     l.absent = (flags & 2) !== 0;
     l.slipping = (flags & 4) !== 0;
+    l.auto = (flags & 8) !== 0;
     l.sink = clamp(num(a[8]) / 100, 0, 1);
     l.brace = clamp(num(a[9]) / 10, 0, 2);
   }
@@ -129,6 +130,7 @@ export function lerpView(a, b, k, v) {
     l.valid = lb.valid;
     l.absent = lb.absent;
     l.slipping = lb.slipping;
+    l.auto = lb.auto;
     l.sink = lb.sink;
     l.brace = lb.brace;
   }

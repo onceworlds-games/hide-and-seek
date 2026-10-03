@@ -34,6 +34,8 @@ export function createSim(opts) {
     humans: [null, null, null, null],
     inputs: [blankInput(), blankInput(), blankInput(), blankInput()],
     mask: [true, true, true, true],
+    lastInputT: [0, 0, 0, 0], // sim time a human's input last changed, per leg
+    auto: [false, false, false, false], // a human leg nobody is driving: the bots step for it
     events: [],
     tick: 0,
     stats: { burns: 0, mudPlants: 0, braces: 0, snaps: 0 },
@@ -47,13 +49,20 @@ export function defaultCfg() {
 }
 
 /** A human's input for a leg (validated). In Pilot mode the pilot's stick is the walker's intent. */
+export const IDLE_LEG_S = 8;
+
 export function setHumanInput(sim, leg, raw) {
   if (leg < 0 || leg > 3) return;
   const h = sim.humans[leg] ?? (sim.humans[leg] = blankInput());
-  h.x = cleanAxis(raw?.x);
-  h.y = cleanAxis(raw?.y);
-  h.lift = raw?.lift === true;
-  h.brace = raw?.brace === true;
+  const x = cleanAxis(raw?.x);
+  const y = cleanAxis(raw?.y);
+  const lift = raw?.lift === true;
+  const brace = raw?.brace === true;
+  if (Math.abs(x - h.x) > 0.05 || Math.abs(y - h.y) > 0.05 || lift !== h.lift || brace !== h.brace || Math.hypot(x, y) > 0.15 || lift) sim.lastInputT[leg] = sim.w.t;
+  h.x = x;
+  h.y = y;
+  h.lift = lift;
+  h.brace = brace;
 }
 
 export function clearHumanInput(sim, leg) {
@@ -110,7 +119,9 @@ export function stepSim(sim, dt = DT) {
   } else {
     let anyHuman = false;
     for (let i = 0; i < 4; i++) {
-      const human = sim.owners[i] !== 'bot';
+      // A leg whose player has gone quiet is stepped by the bots until they touch the controls again.
+      sim.auto[i] = sim.owners[i] !== 'bot' && w.t - sim.lastInputT[i] > IDLE_LEG_S;
+      const human = sim.owners[i] !== 'bot' && !sim.auto[i];
       sim.mask[i] = !human;
       const h = human ? sim.humans[i] : null;
       pilotStick[i] = h ? { x: swap ? -h.x : h.x, y: swap ? -h.y : h.y } : null;
