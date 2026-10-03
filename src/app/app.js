@@ -43,6 +43,8 @@ export async function startApp(params) {
   }
   app.screens = screens;
   app.view = blankView();
+  // ?quality=low|medium|high pins the graphics tier (store art and smoke runs on a real GPU)
+  app.forceQuality = ['low', 'medium', 'high'].includes(params.get('quality')) ? params.get('quality') : null;
 
   // Join first: a reload must not miss its seat while the scene builds.
   const joined = test === 'run' ? null : await joinRoom(JOIN_OPTS);
@@ -446,7 +448,7 @@ function applyOwners(app, run) {
 
 function startRunFromRecord(app, run, match) {
   disposeRun(app);
-  app.quality = settings.choice() === 'auto' ? app.gfx.state.quality : settings.choice();
+  app.quality = app.forceQuality ?? (settings.choice() === 'auto' ? app.gfx.state.quality : settings.choice());
   app.course = buildCourse(run.spec);
   const me = app.me.id;
   const look = { paint: PAINTS.find((p) => p.id === app.save.paint)?.color, sticker: app.save.sticker, hat: app.save.hat, number: 1 + (run.owners.indexOf(me) + 4) % 4 };
@@ -784,7 +786,7 @@ function tick(app, tMs) {
       } catch {}
     }
   }
-  gfx.governQuality(settings.choice(), app.frameMs);
+  gfx.governQuality(app.forceQuality ?? settings.choice(), app.frameMs);
   if (app.run && gfx.state.quality !== app.quality) {
     app.quality = gfx.state.quality;
     app.run.setQuality(app.quality);
