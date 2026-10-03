@@ -3,14 +3,16 @@
 // follow the humans' intent; alone, they walk the course's path.
 import * as C from './constants.js';
 import { ST, hipWorld } from './walker.js';
-import { sample, isDeadly, baseSurface, isWet, waterLevel, staticFeature } from './terrain.js';
+import { sample, isDeadly, baseSurface, isWet, flooded, staticFeature } from './terrain.js';
 import { ventState, geyserState, barAngle, rockState, boulderState, gateState } from './hazards.js';
 import { pathZ } from './courses.js';
 
+// Bots step with human hands: a reaction before a foot moves, hazards read a little late (`late`, s),
+// feet landing a little off. What they have that people don't is one head for four legs.
 export const SKILLS = [
-  { name: 'novice', react: 0.34, stride: 1.5, speed: 0.58, err: 0.3, foresight: 0, trot: false, think: 0.15, safety: -0.3, jitter: 0.45 },
-  { name: 'average', react: 0.15, stride: 2.0, speed: 0.85, err: 0.05, foresight: 1, trot: false, think: 0.1, safety: -0.1, jitter: 0.22 },
-  { name: 'pro', react: 0.1, stride: 2.15, speed: 1, err: 0, foresight: 2, trot: true, think: 0.1, safety: -0.2, jitter: 0 },
+  { name: 'novice', react: 0.42, stride: 1.5, speed: 0.58, err: 0.3, foresight: 0, trot: false, think: 0.15, safety: -0.3, jitter: 0.45, late: 0.3 },
+  { name: 'average', react: 0.26, stride: 1.95, speed: 0.85, err: 0.05, foresight: 1, trot: false, think: 0.1, safety: -0.1, jitter: 0.28, late: 0.18 },
+  { name: 'pro', react: 0.18, stride: 2.1, speed: 1, err: 0, foresight: 2, trot: true, think: 0.1, safety: -0.2, jitter: 0.12, late: 0.08 },
 ];
 
 const gS = { h: 0, s: 0, f: -1, platform: -1, conveyor: 0 };
@@ -52,7 +54,7 @@ export function botSignal(team, kind, t) {
 }
 
 /** The team's intent in the body frame from the humans' sticks (or the path when alone). */
-function computeIntent(team, w, course, humans, autonomous) {
+export function computeIntent(team, w, course, humans, autonomous) {
   const cy = Math.cos(w.yaw);
   const sy = Math.sin(w.yaw);
   // Course guidance: aim a little ahead along the path.
@@ -166,13 +168,14 @@ function steerClear(team, course, w, ax, az) {
   return az;
 }
 
-function targetBad(w, course, dyn, x, z, skill, t, allowMud) {
+export function targetBad(w, course, dyn, x, z, skill, t, allowMud) {
   sample(course, dyn, t, x, z, gS);
   const b = baseSurface(gS.s);
   if (isDeadly(b)) return 100;
-  if (b === C.S.SHORE && course.water && waterLevel(course, t) - gS.h > 0.9) return 100;
-  if (b === C.S.SHORE && course.water && skill.foresight >= 2 && waterLevel(course, t + 1.5) - gS.h > 0.9) return 100;
+  if (flooded(course, t, gS.s, gS.h)) return 100;
+  if (skill.foresight >= 2 && flooded(course, t + 1.5, gS.s, gS.h)) return 100;
   let bad = 0;
+  if (skill.foresight >= 1 && flooded(course, t + 0.6, gS.s, gS.h)) bad += 3;
   if (b === C.S.CRUMBLE) {
     const t0 = gS.f >= 0 && gS.f < dyn.crumble.length ? dyn.crumble[gS.f] : -1;
     if (t0 >= 0) bad += 100; // another foot is on it: a slab carries one foot at a time
@@ -181,7 +184,7 @@ function targetBad(w, course, dyn, x, z, skill, t, allowMud) {
   if (b === C.S.MUD) bad += allowMud ? 0.8 : 2;
   if (b === C.S.SPRING) bad += 2.5;
   if (b === C.S.ICE && skill.foresight >= 1) bad += 0.6;
-  if (b === C.S.SHORE && isWet(gS.s)) bad += 0.7;
+  if (isWet(gS.s)) bad += 0.7;
   if (b === C.S.LAVA) bad += 100;
   if (gS.f >= 1000 && gS.f < 2000 && skill.foresight >= 1) {
     const v = course.vents[gS.f - 1000];
@@ -217,7 +220,7 @@ function targetBad(w, course, dyn, x, z, skill, t, allowMud) {
 }
 
 /** Pick a landing point for leg i around the intent, on good ground, within reach. */
-function pickTarget(team, w, course, dyn, i, out) {
+export function pickTarget(team, w, course, dyn, i, out) {
   const skill = team.skill;
   const leg = w.legs[i];
   hipWorld(w, i, hipS);
@@ -494,7 +497,7 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
         }
       } else b.hover = 0;
       // Never plant into a sweep, a shadow or a lane: hover until it has passed.
-      const incoming = skill.foresight >= 1 && ((course.bars.length && barComing(course, b.tx, b.tz, t, 0.25)) || (course.rocks.length && rockComing(course, b.tx, b.tz, t, 0.6)) || (course.boulders.length && boulderComing(course, b.tx, b.tz, t, 1.2)));
+      const incoming = skill.foresight >= 1 && ((course.bars.length && barComing(course, b.tx, b.tz, t, 0.25)) || (course.rocks.length && rockComing(course, b.tx, b.tz, t, 0.6 - skill.late)) || (course.boulders.length && boulderComing(course, b.tx, b.tz, t, 1.2 - skill.late)));
       inp.lift = !(ready && valid) || incoming;
       if (!inp.lift) {
         b.plan = 'hold';
@@ -502,7 +505,8 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
       }
       continue;
     }
-    // Stance: push (less when the foot is already behind its hip), maybe brace, maybe want to lift.
+    // Stance: push, maybe brace, maybe want to lift. (A trailing foot pushes less by itself: that is the
+    // walker's physics, the same for bots and people.)
     b.plan = 'hold';
     hipWorld(w, i, hipS);
     const cy = Math.cos(w.yaw);
@@ -511,7 +515,7 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
     const rz = leg.fz - hipS.z;
     const along = (rx * cy + rz * sy) * team.intentF + (-rx * sy + rz * cy) * team.intentR; // positive: foot ahead
     const d = Math.hypot(rx, rz);
-    let fresh = Math.max(0.1, Math.min(1, 1 + along / Math.max(0.5, skill.stride)));
+    let fresh = 1;
     // Slippery footing: push gently unless braced, or the foot slides out from under you.
     if (skill.foresight >= 1 && leg.grip < 0.6 && leg.brace <= 0) fresh *= 0.35;
     // Steer: the nose turns toward the intent when front and rear legs push opposite ways.
@@ -541,9 +545,9 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
       if (t0 >= 0 && t - t0 > C.CRUMBLE_T - 0.9) score += 50;
       else if (t0 >= 0 && t - t0 > 0.4) score += 4;
     }
-    if (skill.foresight >= 1 && course.bars.length && barComing(course, leg.fx, leg.fz, t)) score += 50;
-    if (skill.foresight >= 1 && course.rocks.length && rockComing(course, leg.fx, leg.fz, t, 0.5)) score += 50;
-    if (skill.foresight >= 1 && course.boulders.length && boulderComing(course, leg.fx, leg.fz, t, 0.9)) score += 50;
+    if (skill.foresight >= 1 && course.bars.length && barComing(course, leg.fx, leg.fz, t, 0.5 - skill.late)) score += 50;
+    if (skill.foresight >= 1 && course.rocks.length && rockComing(course, leg.fx, leg.fz, t, 0.5 - skill.late)) score += 50;
+    if (skill.foresight >= 1 && course.boulders.length && boulderComing(course, leg.fx, leg.fz, t, 0.9 - skill.late)) score += 50;
     if (base === C.S.SPRING) score += 3;
     if (skill.foresight >= 1 && staticFeature(course.terrain, leg.fx, leg.fz) >= 1000) {
       const f = staticFeature(course.terrain, leg.fx, leg.fz);

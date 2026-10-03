@@ -170,8 +170,8 @@ export function sample(course, dyn, time, x, z, out) {
       s = S.VOID;
       h = VOID_DEPTH;
     }
-  } else if (s === S.SHORE && course.water) {
-    if (h < waterLevel(course, time)) s = S.SHORE | 0x80; // wet
+  } else if ((s === S.SHORE || s === S.STONE) && course.water) {
+    if (h < waterLevel(course, time)) s |= 0x80; // wet: the tide is over it
   } else if (s === S.CONVEYOR && f >= 0) {
     out.conveyor = course.conveyors[f] ? course.conveyors[f].dir : 0;
   }
@@ -217,5 +217,16 @@ export function gradient(t, x, z, out) {
 }
 
 export const isDeadly = (s) => s === S.LAVA || s === S.VOID;
+
+/**
+ * The sea is over this ground deeper than a foot can stand in at `time`: a beach under a wave
+ * (0.9 m), a sea stack under the tide (0.3 m). Nothing plants there until it surfaces.
+ */
+export function flooded(course, time, s, h) {
+  if (!course.water) return false;
+  const b = s & 0x7f;
+  if (b !== S.SHORE && b !== S.STONE) return false;
+  return waterLevel(course, time) - h > (b === S.SHORE ? 0.9 : 0.3);
+}
 export const baseSurface = (s) => s & 0x7f;
 export const isWet = (s) => (s & 0x80) !== 0;

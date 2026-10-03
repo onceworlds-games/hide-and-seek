@@ -2,7 +2,7 @@
 // (lifted), a chassis pushed by the planted feet and held within their reach, a support
 // polygon the centre of mass must stay inside, and a cargo that leans and spills.
 import * as C from './constants.js';
-import { sample, gradient, platformPose, isDeadly, baseSurface, isWet, waterLevel, HALF_W } from './terrain.js';
+import { sample, gradient, platformPose, isDeadly, baseSurface, isWet, flooded, HALF_W } from './terrain.js';
 import { ventState, geyserState, rockState, barAngle, gateState, boulderState, windAt } from './hazards.js';
 import { lastRespawn, checkpointIndex } from './courses.js';
 
@@ -113,7 +113,7 @@ function gripOf(w, leg, surf) {
   const base = baseSurface(surf);
   const info = SURF[base] ?? SURF[0];
   let g = info.grip;
-  if (base === C.S.SHORE && isWet(surf)) g = info.wetGrip;
+  if (isWet(surf) && info.wetGrip) g = info.wetGrip; // the tide is over the beach or the stack
   if (base === C.S.ICE && leg.feet === 'claws') g = C.FEET.claws.iceGrip;
   g *= w.cfg.gripMult;
   if (leg.inert) g *= 0.3;
@@ -129,6 +129,33 @@ function leaveSlab(w, leg, dyn) {
     if (!other) dyn.crumble[leg.slab] = -1;
   }
   leg.slab = -1;
+}
+
+const FOOT_R = 0.25; // the rubber pad's half-width: a foot whose pad still covers ground holds
+const padS = { h: 0, s: 0, f: -1, platform: -1, conveyor: 0 };
+const PAD_DIRS = [0, 1, 2, 3, 4, 5, 6, 7].map((k) => [Math.cos((k * Math.PI) / 4) * FOOT_R, Math.sin((k * Math.PI) / 4) * FOOT_R]);
+
+/**
+ * The ground under a foot at (x, z), into gS: its centre, or, when that is over a drop, the nearest
+ * edge its pad still covers. Returns 0 when the centre holds, 1..8 for the pad direction that holds
+ * (the foot settles onto that edge), -1 when nothing does.
+ */
+function footing(course, dyn, t, x, z) {
+  sample(course, dyn, t, x, z, gS);
+  if (!isDeadly(baseSurface(gS.s))) return 0;
+  for (let k = 0; k < 8; k++) {
+    sample(course, dyn, t, x + PAD_DIRS[k][0], z + PAD_DIRS[k][1], padS);
+    const b = baseSurface(padS.s);
+    if (!isDeadly(b) && b !== C.S.CRUMBLE) { // a loose slab never takes half a foot
+      gS.h = padS.h;
+      gS.s = padS.s;
+      gS.f = padS.f;
+      gS.platform = padS.platform;
+      gS.conveyor = padS.conveyor;
+      return k + 1;
+    }
+  }
+  return -1;
 }
 
 function burn(w, leg, why, dyn) {
@@ -238,12 +265,18 @@ function plant(w, leg, course, dyn) {
     leg.snapped = true;
     w.events.push({ type: 'snap', leg: leg.i, x: leg.tx, y: gS.h, z: leg.tz });
   }
+  // the pad catches an edge the centre missed: the foot settles onto it
+  const pad = footing(course, dyn, w.t, leg.tx, leg.tz);
+  if (pad > 0) {
+    leg.tx += PAD_DIRS[pad - 1][0];
+    leg.tz += PAD_DIRS[pad - 1][1];
+  }
   const base = baseSurface(gS.s);
   leg.fx = leg.tx;
   leg.fz = leg.tz;
   leg.fy = gS.h;
   if (isDeadly(base)) return burn(w, leg, base === C.S.LAVA ? 'burn' : 'fall', dyn);
-  if (base === C.S.SHORE && course.water && waterLevel(course, w.t) - gS.h > 0.9) return burn(w, leg, 'soak', dyn);
+  if (flooded(course, w.t, gS.s, gS.h)) return burn(w, leg, 'soak', dyn);
   leg.st = ST.STANCE;
   leg.platform = gS.platform;
   leg.surf = gS.s;
@@ -309,10 +342,18 @@ function stepLeg(w, i, course, dyn, inp, dt) {
   const dtx = hipS.x + (cy * tf - sy * tr) * range;
   const dtz = hipS.z + (sy * tf + cy * tr) * range;
   if (leg.st === ST.STANCE) {
-    sample(course, dyn, w.t, leg.fx, leg.fz, gS);
+    // (a slab that gave way drops its foot: the pad only catches edges a foot slides to)
+    const dropped = leg.slab >= 0 && leg.slab < dyn.gone.length && dyn.gone[leg.slab] >= 0;
+    const pad = dropped ? -1 : footing(course, dyn, w.t, leg.fx, leg.fz);
+    if (dropped) sample(course, dyn, w.t, leg.fx, leg.fz, gS);
+    if (pad > 0) {
+      leg.fx += PAD_DIRS[pad - 1][0];
+      leg.fz += PAD_DIRS[pad - 1][1];
+    }
     const base = baseSurface(gS.s);
     if (isDeadly(base)) return burn(w, leg, base === C.S.LAVA ? 'burn' : 'fall', dyn);
-    if (base === C.S.SHORE && course.water && waterLevel(course, w.t) - gS.h > 0.9) return burn(w, leg, 'soak', dyn);
+    // a wave over the beach knocks a standing foot off; a sea stack under the tide only gets slippery
+    if (base === C.S.SHORE && flooded(course, w.t, gS.s, gS.h)) return burn(w, leg, 'soak', dyn);
     leg.surf = gS.s;
     leg.platform = gS.platform;
     leg.fy = gS.h;
@@ -369,12 +410,12 @@ function stepLeg(w, i, course, dyn, inp, dt) {
     leg.tx = hipS.x + ox;
     leg.tz = hipS.z + oz;
   }
-  sample(course, dyn, w.t, leg.tx, leg.tz, gS);
+  footing(course, dyn, w.t, leg.tx, leg.tz);
   leg.ty = gS.h;
   const tb = baseSurface(gS.s);
   const dyT = gS.h - hipS.y;
   const reachable = od * od + dyT * dyT <= (leg.reach + 0.1) * (leg.reach + 0.1);
-  leg.valid = reachable && !isDeadly(tb) && !(tb === C.S.SHORE && course.water && waterLevel(course, w.t) - gS.h > 0.9);
+  leg.valid = reachable && !isDeadly(tb) && !flooded(course, w.t, gS.s, gS.h);
   const swingT = C.SWING_T * (leg.feet === 'springs' ? C.FEET.springs.swingMult : 1);
   const p = Math.min(1, leg.sw / swingT);
   const s = p * p * (3 - 2 * p);
@@ -401,9 +442,17 @@ function bodyDynamics(w, course, dyn, dt) {
     const leg = w.legs[i];
     if (leg.st !== ST.STANCE) continue;
     const g = Math.min(1.3, leg.grip);
-    sumF += leg.pushF * g;
-    sumR += leg.pushR * g;
-    torque += (C.HIPS[i][0] * leg.pushR - C.HIPS[i][1] * leg.pushF) * g;
+    // A foot pushes hardest from under or ahead of its hip; one trailing far behind is at the end of its stroke.
+    let gp = g;
+    const pm = Math.hypot(leg.pushF, leg.pushR);
+    if (pm > 0.01) {
+      hipWorld(w, i, hipS);
+      const along = ((leg.fx - hipS.x) * (cy * leg.pushF - sy * leg.pushR) + (leg.fz - hipS.z) * (sy * leg.pushF + cy * leg.pushR)) / pm;
+      gp *= clamp(1 + along / C.PUSH_STROKE, C.PUSH_MIN, 1);
+    }
+    sumF += leg.pushF * gp;
+    sumR += leg.pushR * gp;
+    torque += (C.HIPS[i][0] * leg.pushR - C.HIPS[i][1] * leg.pushF) * gp;
     sumGrip += g;
     resist += g * (leg.feet === 'suction' ? 1.6 : 1);
     n++;
@@ -441,7 +490,16 @@ function bodyDynamics(w, course, dyn, dt) {
   const k = Math.min(1, C.VEL_DAMP * dt);
   w.vx += (dvx - w.vx) * k;
   w.vz += (dvz - w.vz) * k;
-  const dYaw = (torque * C.YAW_GAIN) / 4;
+  let dYaw = (torque * C.YAW_GAIN) / 4;
+  // Heading follows motion: four people all pushing toward the goal turn the machine toward it (a pure
+  // sideways shuffle is slow and awkward), and walking backwards never spins it round.
+  const sp = Math.hypot(w.vx, w.vz);
+  if (sp > 0.3 && n > 0) {
+    let err = Math.atan2(w.vz, w.vx) - w.yaw;
+    if (err > Math.PI) err -= 2 * Math.PI;
+    else if (err < -Math.PI) err += 2 * Math.PI;
+    if (Math.abs(err) < 2.2) dYaw += clamp(err, -1, 1) * C.YAW_ALIGN * Math.min(1, sp);
+  }
   w.yawRate += (dYaw - w.yawRate) * Math.min(1, C.YAW_DAMP * dt);
   if (n === 0) {
     w.vx *= 0.9;
@@ -841,7 +899,7 @@ function balance(w, course, dt) {
     const l = Math.hypot(dx, dz) || 1;
     w.tipDirX = dx / l;
     w.tipDirZ = dz / l;
-    w.tip += excess * C.TIP_RATE * w.cfg.tipMult * dt;
+    w.tip += Math.min(excess, C.TIP_EXCESS_CAP) * C.TIP_RATE * w.cfg.tipMult * dt;
   } else w.tip = Math.max(0, w.tip - C.TIP_RECOVER * dt);
   if (w.tip > C.TIP_LIMIT) w.tip = C.TIP_LIMIT;
   if (w.tip >= C.TIP_LIMIT) return tumble(w, course, 'tipped');

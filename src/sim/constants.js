@@ -28,10 +28,13 @@ export const LEG_COLORS = ['#f0702a', '#22a0a0', '#f2c53d', '#f07aa8'];
 export const LEG_MARKS = ['circle', 'square', 'triangle', 'star'];
 
 // Body motion.
-export const PUSH_GAIN = 2.6; // four full pushes on clay: 2.6 m/s
+export const PUSH_GAIN = 2.9; // four full pushes on clay: 2.9 m/s
+export const PUSH_STROKE = 2.2; // a foot this far behind its hip has little push left (it needs a step)
+export const PUSH_MIN = 0.2;
 export const YAW_GAIN = 0.9; // rad/s per unit moment
 export const VEL_DAMP = 3.5; // 1/s
 export const YAW_DAMP = 5;
+export const YAW_ALIGN = 0.6; // rad/s per rad: a walker pushed sideways swings round to face where it is going
 export const HEIGHT_K = 40;
 export const HEIGHT_C = 11;
 export const TILT_EASE = 9;
@@ -43,6 +46,7 @@ export const WIND_GAIN = 1;
 // Balance.
 export const COM_MARGIN = 0.5;
 export const TIP_RATE = 34; // degrees per second per metre outside the margin
+export const TIP_EXCESS_CAP = 0.6; // metres: however bad the stance, a topple takes about 1.4 s (readable, catchable)
 export const TIP_RECOVER = 48; // degrees per second
 export const TIP_LIMIT = 28;
 export const TUMBLE_T = 3;
@@ -78,7 +82,7 @@ export const SURFACES = [
   { id: 'crumble', grip: 1.0, sound: 'stone', safe: true, crumbles: true },
   { id: 'conveyor', grip: 1.0, sound: 'metal', safe: true },
   { id: 'shore', grip: 0.9, sound: 'clay', safe: true, wetGrip: 0.5 },
-  { id: 'stone', grip: 1.0, sound: 'stone', safe: true },
+  { id: 'stone', grip: 1.0, sound: 'stone', safe: true, wetGrip: 0.8 },
 ];
 
 // Cargo.
