@@ -237,15 +237,6 @@ export function createHud(canvas) {
         ctx.globalAlpha = 1;
         by += 40;
       }
-      if (st.watching) {
-        ctx.font = `${compact ? 16 : 20}px Bungee, Impact, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.lineWidth = 5;
-        ctx.strokeStyle = INK;
-        ctx.fillStyle = CREAM;
-        ctx.strokeText('WATCHING', W / 2, st.h - (touch ? 150 : 60));
-        ctx.fillText('WATCHING', W / 2, st.h - (touch ? 150 : 60));
-      }
     },
   };
 }
