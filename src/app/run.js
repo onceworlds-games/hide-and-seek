@@ -38,13 +38,13 @@ export function createRun(opts) {
   cam.snap(sim.w);
   gfx.setBiome(course.biome);
   // a warm rim light from beyond the machine, wherever the camera is: its outline lifts off the ground
-  const rim = new THREE.DirectionalLight(0xffd9a0, quality === 'low' ? 0.7 : 1.0);
+  const rim = new THREE.DirectionalLight(0xffd9a0, quality === 'low' ? 0.45 : 0.6);
   gfx.scene.add(rim, rim.target);
   const placeRim = (w) => {
     const dx = w.x - gfx.camera.position.x;
     const dz = w.z - gfx.camera.position.z;
     const l = Math.hypot(dx, dz) || 1;
-    rim.position.set(w.x + (dx / l) * 18, w.y + 7, w.z + (dz / l) * 18);
+    rim.position.set(w.x + (dx / l) * 18, w.y + 1.5, w.z + (dz / l) * 18); // low and grazing: edges, not the deck
     rim.target.position.set(w.x, w.y, w.z);
   };
 
@@ -107,14 +107,15 @@ export function createRun(opts) {
       const w = run.view;
       run.time += dt;
       run.celebT = (run.celebT ?? 0) + dt;
-      if (run.celebAngle === undefined) run.celebAngle = w.yaw + Math.PI + 0.6;
-      run.celebAngle += dt * (cam.st.reduced ? 0.05 : 0.22);
+      // start in front of the machine (the goal gate behind it) and turn slowly
+      if (run.celebAngle === undefined) run.celebAngle = w.yaw + 0.55;
+      run.celebAngle += dt * (cam.st.reduced ? 0.03 : 0.1);
       walker.update(w, dt, run.time);
       hud3d.setVisible(false);
       hazards.update(w.t + run.celebT, sim.dyn, terrain.water, w);
       decor.update(run.time, w.x);
       fx.update(dt, gfx.camera);
-      cam.orbitAround(w.x, w.y - 0.4, w.z, 10.5, run.celebAngle, 3.4);
+      cam.orbitAround(w.x, w.y - 0.6, w.z, 12.5, run.celebAngle, 5.6); // above the goal gate's posts
       placeRim(w);
       const W = window.innerWidth || 1;
       const H = window.innerHeight || 1;

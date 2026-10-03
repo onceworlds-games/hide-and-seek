@@ -93,7 +93,7 @@ export function createWorkshopScene(gfx, save) {
   can.position.set(8.4, -0.75, 3.5);
   group.add(can);
   // a warm rim light from behind the machine, wherever the camera is: its outline glows
-  const rimLight = new THREE.DirectionalLight(0xffd9a0, 1.1);
+  const rimLight = new THREE.DirectionalLight(0xffd9a0, 0.8);
   group.add(rimLight);
   group.add(rimLight.target);
   gfx.scene.add(group);
@@ -171,7 +171,7 @@ export function createWorkshopScene(gfx, save) {
       offset = !!(ox || oy);
       g.camera.position.set(Math.cos(angle) * radius, 4.6 + Math.sin(view.t * 0.5) * 0.3, Math.sin(angle) * radius);
       g.camera.lookAt(0, 1.3, 0);
-      rimLight.position.set(-Math.cos(angle) * 20, 9, -Math.sin(angle) * 20);
+      rimLight.position.set(-Math.cos(angle) * 20, 4, -Math.sin(angle) * 20);
       rimLight.target.position.set(0, 1, 0);
       g.followSun(0, 0);
       g.sky.follow(g.camera.position.x, 0, g.camera.position.z);
