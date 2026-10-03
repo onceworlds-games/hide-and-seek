@@ -65,6 +65,24 @@ export const MUTATOR_IDS = Object.keys(MUTATORS);
 export const expeditionId = (biome, index) => `e${biome + 1}-${index + 1}`;
 export const expeditionCount = EXPEDITIONS.length;
 
+/** What the workshop's route card shows, without building the course: name, cargo, length, tumbles. */
+export function expeditionInfo(biome, index) {
+  const b = Math.max(0, Math.min(5, biome | 0));
+  const i = Math.max(0, Math.min(3, index | 0));
+  const e = EXPEDITIONS[b * 4 + i];
+  let length = lengthOf('flat') + lengthOf('goal') + 2;
+  let since = 10;
+  for (const [tpl] of e.segs) {
+    if (since + lengthOf(tpl) > CHECKPOINT_EVERY) {
+      length += lengthOf('check');
+      since = 8;
+    }
+    length += lengthOf(tpl);
+    since += lengthOf(tpl);
+  }
+  return { id: expeditionId(b, i), name: e.name, biome: BIOMES[b].name, cargo: CARGO_BY_INDEX(b, i), length, budget: e.budget ?? TUMBLE_BUDGET };
+}
+
 /** The day number for the Daily (UTC), from the platform clock. */
 export const dayNumber = (nowMs) => Math.floor(nowMs / 86400000);
 

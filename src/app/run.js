@@ -85,6 +85,27 @@ export function createRun(opts) {
       gfx.followSun(w.x, w.z);
       gfx.sky.follow(gfx.camera.position.x, 0, gfx.camera.position.z);
     },
+    /** The results: the finished machine where it stopped, the camera circling it, the world still moving. */
+    celebrate(dt) {
+      const w = run.view;
+      run.time += dt;
+      run.celebT = (run.celebT ?? 0) + dt;
+      if (run.celebAngle === undefined) run.celebAngle = w.yaw + Math.PI + 0.6;
+      run.celebAngle += dt * (cam.st.reduced ? 0.05 : 0.22);
+      walker.update(w, dt, run.time);
+      hud3d.setVisible(false);
+      hazards.update(w.t + run.celebT, sim.dyn, terrain.water, w);
+      decor.update(run.time, w.x);
+      fx.update(dt, gfx.camera);
+      cam.orbitAround(w.x, w.y - 0.4, w.z, 10.5, run.celebAngle, 3.4);
+      const W = window.innerWidth || 1;
+      const H = window.innerHeight || 1;
+      // the receipt sits low on an upright screen (the machine above it), on the left on a wide one
+      if (H > W) gfx.camera.setViewOffset(W, H, 0, H * 0.17, W, H);
+      else gfx.camera.setViewOffset(W, H, -Math.min(260, W * 0.27), 0, W, H);
+      gfx.followSun(w.x, w.z);
+      gfx.sky.follow(gfx.camera.position.x, 0, gfx.camera.position.z);
+    },
     setQuality(q) {
       fx.setBudget(q === 'low' ? 0.4 : q === 'medium' ? 0.7 : 1);
       hud3d.setBlob(q === 'low');
@@ -121,6 +142,7 @@ export function createRun(opts) {
       g.mesh.visible = t < n / 4 + 1;
     },
     dispose() {
+      gfx.camera.clearViewOffset();
       run.setGhost(null);
       gfx.scene.remove(terrain.group);
       terrain.dispose();

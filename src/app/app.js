@@ -11,7 +11,7 @@ import { createNet } from '../net/net.js';
 import { blankView } from '../net/codec.js';
 import { createWorkshopScene } from './workshop.js';
 import { joinRoom, player as sdkPlayer, save as sdkSave, badges as sdkBadges, leaderboards, settings, ui, events as sdkEvents, now as platformNow, onPlatform } from '../platform.js';
-import { loadSave, applyResult, walkerConfig, PAINTS, STICKERS, HATS, HORNS } from '../sim/save.js';
+import { loadSave, applyResult, walkerConfig, unlockedCount, PAINTS, STICKERS, HATS, HORNS } from '../sim/save.js';
 import { signalSim } from '../sim/sim.js';
 import { SKILLS } from '../sim/bots.js';
 import { buildCourse, dailySpec, expeditionId } from '../sim/courses.js';
@@ -450,6 +450,7 @@ function startRunFromRecord(app, run, match) {
   disposeRun(app);
   app.quality = app.forceQuality ?? (settings.choice() === 'auto' ? app.gfx.state.quality : settings.choice());
   app.course = buildCourse(run.spec);
+  app.gfx.camera.clearViewOffset();
   const me = app.me.id;
   const look = { paint: PAINTS.find((p) => p.id === app.save.paint)?.color, sticker: app.save.sticker, hat: app.save.hat, number: 1 + (run.owners.indexOf(me) + 4) % 4 };
   const auto = app.test === 'auto';
@@ -521,7 +522,20 @@ function takeResults(app, raw) {
     flushSave(app, true);
     for (const id of earned) sdkBadges.award(id);
     submitScores(app, clean);
+    selectNext(app, clean);
   }
+}
+
+/** Host: a finished expedition moves the workshop on to the next one (the arrows go back). */
+function selectNext(app, r) {
+  const m = /^e([1-6])-([1-4])$/.exec(r.courseId);
+  if (!m || r.kind !== 'expedition' || !r.finished || !app.net?.isHost) return;
+  const setup = app.net.setup;
+  const done = (Number(m[1]) - 1) * 4 + Number(m[2]) - 1;
+  if (setup.mode !== 'expedition' || setup.biome * 4 + setup.index !== done) return;
+  const next = done + 1;
+  if (next >= 24 || unlockedCount(app.save) <= next) return;
+  app.net.setSetup({ ...setup, biome: Math.floor(next / 4), index: next % 4, ghost: false });
 }
 const fin = (v, lo, hi, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
 
@@ -744,6 +758,7 @@ function startTestRun(app, params) {
   const m = /^e(\d)-(\d)$/.exec(params.get('course') ?? 'e1-1');
   const spec = m ? { kind: 'expedition', biome: Number(m[1]) - 1, index: Number(m[2]) - 1 } : { kind: params.get('course') ?? 'endless', seed: 'test', biome: 0 };
   app.course = buildCourse(spec);
+  app.gfx.camera.clearViewOffset();
   app.quality = params.get('quality') ?? 'low';
   app.run = createRun({ gfx: app.gfx, course: app.course, owners: ['bot', 'bot', 'bot', 'bot'], pilot: null, botSkill: Number(params.get('skill') ?? 2), seed: 'test', look: {}, myLeg: 0, quality: app.quality, autonomous: true, onEvent: (e) => onSimEvent(app, e) });
   app.gfx.applyQuality(app.quality);
@@ -776,6 +791,11 @@ function tick(app, tMs) {
   if (document.hidden) return;
   if (app.screen === 'play' && app.run) {
     playFrame(app, dt);
+  } else if (app.screen === 'results' && app.run) {
+    // the receipt over the finished run, not over the workshop
+    app.run.celebrate(dt);
+    hud.clear();
+    if (app.net && app.room) app.net.sendPresence({ st: 'results', leg: app.myLeg, feet: app.save.feet, s: [0, 0], l: 0, b: 0, paint: app.save.paint }, tMs);
   } else {
     app.workshop?.update(dt, gfx, app.screen);
     hud.clear();

@@ -1,8 +1,8 @@
-// DOM screens: the title (one button), the workshop (lobby: expedition picker, seats, upgrades,
-// cosmetics), results, the room-closed card, the signal wheel and the "join at checkpoint" offer.
-// Labels, not sentences. Every string from another player goes through textContent.
+// DOM screens: the title (one button), the workshop hub (the lobby: a route card, the parts and
+// paint drawers, the legs), results, the room-closed card, the signal wheel and the "join at
+// checkpoint" offer. Labels, not sentences. Every string from another player goes through textContent.
 import * as C from '../sim/constants.js';
-import { BIOMES, EXPEDITIONS, MUTATORS, MUTATOR_IDS, expeditionId } from '../sim/courses.js';
+import { BIOMES, MUTATORS, MUTATOR_IDS, expeditionId, expeditionInfo } from '../sim/courses.js';
 import { PAINTS, STICKERS, HATS, HORNS, unlockedCount } from '../sim/save.js';
 import { fmtTime } from '../sim/score.js';
 
@@ -14,16 +14,21 @@ const el = (tag, cls, text) => {
 };
 const btn = (label, cls, onClick) => {
   const b = el('button', `btn ${cls ?? ''}`, label);
+  b.type = 'button';
   b.addEventListener('click', (e) => {
     e.preventDefault();
     onClick?.(e);
   });
   return b;
 };
+const MEDAL_WORD = { gold: 'GOLD', silver: 'SILVER', bronze: 'BRONZE' };
+const CARGO_WORD = (id) => C.CARGO[id]?.name ?? 'Cargo';
 
 export function createScreens(root, app) {
   let current = null;
   let currentName = '';
+  let drawer = ''; // which workshop drawer is open: '', 'parts', 'paint', 'mutators'
+  let lastModel = null;
   const show = (name, node) => {
     root.replaceChildren(node);
     current = node;
@@ -35,104 +40,124 @@ export function createScreens(root, app) {
     currentName = '';
   };
 
+  // The host browses expeditions with the arrow keys while the workshop is up.
+  window.addEventListener('keydown', (e) => {
+    if (currentName !== 'workshop' || !lastModel?.isHost || lastModel.setup.mode !== 'expedition') return;
+    if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+      e.preventDefault();
+      step(lastModel, e.code === 'ArrowLeft' ? -1 : 1);
+    } else if (e.code === 'Escape' && drawer) {
+      drawer = '';
+      workshop(lastModel);
+    }
+  });
+
   function title() {
     const s = el('div', 'screen title');
     s.appendChild(el('h1', 'title-word', 'LEGWORK'));
-    const play = btn('PLAY', 'big', () => app.play());
+    const play = btn('PLAY', 'big play', () => app.play());
     s.appendChild(play);
     show('title', s);
     play.focus();
   }
 
-  /** The workshop: the lobby. `m` is the model built by the app each refresh. */
-  function workshop(m) {
-    const s = el('div', 'screen lobby');
-    const grid = el('div', 'workshop');
-    // --- Expedition / mode (host picks; others see)
-    const pick = el('div', 'panel');
-    const head = el('div', 'row');
-    head.appendChild(el('h3', '', m.isHost ? 'EXPEDITION' : `${m.hostName || 'HOST'} PICKS`));
-    const scrap = el('span', 'scrap', `${m.save.scrap} SCRAP`);
-    scrap.style.marginLeft = 'auto';
-    head.appendChild(scrap);
-    pick.appendChild(head);
-    const modes = el('div', 'chips');
-    for (const [id, label] of [['expedition', 'Expedition'], ['endless', 'Endless Stride'], ['daily', 'Daily']]) {
-      const c = el('button', `chip ${m.setup.mode === id ? 'on' : ''}`, label);
-      c.disabled = !m.isHost;
-      c.addEventListener('click', () => app.setSetup({ ...m.setup, mode: id }));
-      modes.appendChild(c);
+  /** The open expeditions in order, as [biome, index]. */
+  const openList = (save) => {
+    const n = unlockedCount(save);
+    const out = [];
+    for (let k = 0; k < n; k++) out.push([Math.floor(k / 4), k % 4]);
+    return out;
+  };
+  function step(m, dir) {
+    const list = openList(m.save);
+    const k = list.findIndex(([b, i]) => b === m.setup.biome && i === m.setup.index);
+    const next = list[(Math.max(0, k) + dir + list.length) % list.length];
+    if (next) app.setSetup({ ...m.setup, biome: next[0], index: next[1], ghost: false });
+  }
+
+  /** The route card: what the next run is. */
+  function routeCard(m) {
+    const card = el('div', 'route');
+    const top = el('div', 'route-top');
+    const mode = m.setup.mode;
+    top.appendChild(el('span', 'route-biome', mode === 'expedition' ? BIOMES[m.setup.biome].name : mode === 'daily' ? `Daily · ${BIOMES[m.daily.biome].name}` : 'Endless'));
+    top.appendChild(el('span', 'route-scrap', `${m.save.scrap} SCRAP`));
+    card.appendChild(top);
+    const main = el('div', 'route-main');
+    const canPick = m.isHost && mode === 'expedition' && openList(m.save).length > 1;
+    if (canPick) main.appendChild(btn('◀', 'arrow', () => step(m, -1)));
+    const mid = el('div', 'route-mid');
+    if (mode === 'expedition') {
+      const info = expeditionInfo(m.setup.biome, m.setup.index);
+      mid.appendChild(el('div', 'route-name', info.name));
+      const medal = m.save.medals[info.id];
+      const best = m.save.best[info.id];
+      const meta = [CARGO_WORD(info.cargo), `${info.length} m`];
+      if (info.budget !== C.TUMBLE_BUDGET) meta.push(`${info.budget} tumbles`);
+      // one line: cargo, length, and the medal and best time once there are some
+      const line = el('div', 'route-meta');
+      line.appendChild(el('span', '', meta.join(' · ')));
+      if (medal) line.appendChild(el('span', `medal-dot ${medal}`, MEDAL_WORD[medal]));
+      if (best) line.appendChild(el('span', 'route-best', fmtTime(best)));
+      mid.appendChild(line);
+    } else if (mode === 'daily') {
+      mid.appendChild(el('div', 'route-name', 'Daily Stride'));
+      mid.appendChild(el('div', 'route-meta', `${MUTATORS[m.daily.mutators[0]]?.name ?? ''} · Day ${m.daily.day}`));
+    } else {
+      mid.appendChild(el('div', 'route-name', 'Endless Stride'));
+      mid.appendChild(el('div', 'route-meta', m.save.endlessBest ? `Best ${m.save.endlessBest} m` : 'As far as it goes'));
     }
-    pick.appendChild(modes);
-    if (m.setup.mode === 'expedition') {
-      const biomes = el('div', 'chips');
-      biomes.style.marginTop = '8px';
-      const unlocked = unlockedCount(m.save);
-      for (let b = 0; b < 6; b++) {
-        const open = unlocked > b * 4;
-        const c = el('button', `chip ${m.setup.biome === b ? 'on' : ''} ${open ? '' : 'locked'}`, BIOMES[b].name);
-        c.disabled = !m.isHost || !open;
-        c.addEventListener('click', () => app.setSetup({ ...m.setup, biome: b, index: 0 }));
-        biomes.appendChild(c);
-      }
-      pick.appendChild(biomes);
-      const exps = el('div', 'chips');
-      exps.style.marginTop = '8px';
+    main.appendChild(mid);
+    if (canPick) main.appendChild(btn('▶', 'arrow', () => step(m, 1)));
+    card.appendChild(main);
+    if (mode === 'expedition') {
+      // the biome's four expeditions as stamps: number, medal colour, the current one raised
+      const stamps = el('div', 'stamps');
+      const open = unlockedCount(m.save);
       for (let i = 0; i < 4; i++) {
         const id = expeditionId(m.setup.biome, i);
-        const open = unlocked > m.setup.biome * 4 + i;
+        const isOpen = open > m.setup.biome * 4 + i;
         const medal = m.save.medals[id];
-        const c = el('button', `chip ${m.setup.index === i ? 'on' : ''} ${open ? '' : 'locked'} ${medal === 'gold' ? 'gold' : ''}`, `${i + 1}. ${EXPEDITIONS[m.setup.biome * 4 + i].name}`);
-        if (medal) c.appendChild(el('span', 'cost', medal === 'gold' ? '★★★' : medal === 'silver' ? '★★' : '★'));
-        if (m.save.best[id]) c.appendChild(el('span', 'cost', fmtTime(m.save.best[id])));
-        c.disabled = !m.isHost || !open;
-        c.addEventListener('click', () => app.setSetup({ ...m.setup, index: i }));
-        exps.appendChild(c);
+        const s = el('button', `stamp ${m.setup.index === i ? 'on' : ''} ${isOpen ? '' : 'locked'} ${medal ?? ''}`, String(i + 1));
+        s.type = 'button';
+        s.title = expeditionInfo(m.setup.biome, i).name;
+        s.disabled = !m.isHost || !isOpen;
+        s.addEventListener('click', () => app.setSetup({ ...m.setup, index: i, ghost: false }));
+        stamps.appendChild(s);
       }
-      pick.appendChild(exps);
-      const ghostRow = el('div', 'chips');
-      ghostRow.style.marginTop = '8px';
-      const gid = expeditionId(m.setup.biome, m.setup.index);
-      const hasGhost = !!m.save.ghosts[gid];
-      const g = el('button', `chip ${m.setup.ghost && hasGhost ? 'on' : ''} ${hasGhost ? '' : 'locked'}`, hasGhost ? 'Race your ghost' : 'No ghost yet');
-      g.disabled = !m.isHost || !hasGhost;
-      g.addEventListener('click', () => app.setSetup({ ...m.setup, ghost: !m.setup.ghost }));
-      ghostRow.appendChild(g);
-      pick.appendChild(ghostRow);
-    } else if (m.setup.mode === 'daily') {
-      const info = el('div', 'chips');
-      info.style.marginTop = '8px';
-      info.appendChild(el('span', 'chip on', `${BIOMES[m.daily.biome].name}`));
-      info.appendChild(el('span', 'chip', MUTATORS[m.daily.mutators[0]]?.name ?? 'Mutator'));
-      info.appendChild(el('span', 'chip', `Day ${m.daily.day}`));
-      pick.appendChild(info);
-    } else {
-      const info = el('div', 'chips');
-      info.style.marginTop = '8px';
-      info.appendChild(el('span', 'chip', `Best ${m.save.endlessBest} m`));
-      pick.appendChild(info);
-    }
-    if (m.setup.mode !== 'daily') {
-      const muts = el('div', 'chips');
-      muts.style.marginTop = '8px';
-      for (const id of MUTATOR_IDS) {
-        const on = m.setup.mutators.includes(id);
-        const c = el('button', `chip ${on ? 'on' : ''}`, MUTATORS[id].name);
-        c.disabled = !m.isHost;
-        c.addEventListener('click', () => app.setSetup({ ...m.setup, mutators: on ? m.setup.mutators.filter((x) => x !== id) : [...m.setup.mutators, id] }));
-        muts.appendChild(c);
+      const hasGhost = !!m.save.ghosts[expeditionId(m.setup.biome, m.setup.index)];
+      if (hasGhost) {
+        const g = el('button', `stamp ghost ${m.setup.ghost ? 'on' : ''}`, 'GHOST');
+        g.type = 'button';
+        g.disabled = !m.isHost;
+        g.addEventListener('click', () => app.setSetup({ ...m.setup, ghost: !m.setup.ghost }));
+        stamps.appendChild(g);
       }
-      pick.appendChild(muts);
+      card.appendChild(stamps);
     }
-    grid.appendChild(pick);
-    // --- Seats
-    const seats = el('div', 'panel');
-    seats.appendChild(el('h3', '', 'LEGS'));
-    const srow = el('div', 'chips');
+    if (!m.isHost) card.appendChild(el('div', 'route-host', `${m.hostName || 'Host'} picks`));
+    return card;
+  }
+
+  function modes(m) {
+    const row = el('div', 'modes');
+    for (const [id, label] of [['expedition', 'Expedition'], ['endless', 'Endless'], ['daily', 'Daily']]) {
+      const c = el('button', `mode ${m.setup.mode === id ? 'on' : ''}`, label);
+      c.type = 'button';
+      c.disabled = !m.isHost;
+      c.addEventListener('click', () => app.setSetup({ ...m.setup, mode: id }));
+      row.appendChild(c);
+    }
+    return row;
+  }
+
+  function seatsRow(m) {
+    const row = el('div', 'seats');
     for (let i = 0; i < 4; i++) {
       const id = m.seats[i];
       const pl = id ? m.players.get(id) : null;
       const seat = el('button', `seat ${id === m.me ? 'mine' : ''}`);
+      seat.type = 'button';
       const sw = el('span', 'swatch');
       sw.style.background = C.LEG_COLORS[i];
       seat.appendChild(sw);
@@ -145,154 +170,174 @@ export function createScreens(root, app) {
           else img.remove();
         });
         seat.appendChild(img);
-        const name = el('span', 'name', pl.name || 'Player');
-        seat.appendChild(name);
-        if (id === m.host) seat.appendChild(el('span', 'cost', 'HOST'));
-        if (pl.ready) seat.appendChild(el('span', 'cost', '✓'));
-      } else {
-        seat.appendChild(el('span', 'name', 'Bot'));
-      }
+        seat.appendChild(el('span', 'name', pl.name || 'Player'));
+        if (id === m.host) seat.appendChild(el('span', 'tag', 'HOST'));
+        else if (pl.ready) seat.appendChild(el('span', 'tag ok', 'READY'));
+      } else seat.appendChild(el('span', 'name', 'Bot'));
       seat.title = C.LEG_NAMES[i];
       seat.addEventListener('click', () => {
         if (!id) app.claimSeat(i);
       });
-      srow.appendChild(seat);
+      row.appendChild(seat);
     }
-    seats.appendChild(srow);
-    if (m.players.size < 4) {
-      const inv = btn('INVITE', 'small brass', () => app.invite());
-      inv.style.marginTop = '8px';
-      seats.appendChild(inv);
-    }
-    grid.appendChild(seats);
-    // --- Upgrades (own save)
-    const up = el('div', 'panel');
-    up.appendChild(el('h3', '', 'WORKSHOP'));
-    const feetRow = el('div', 'chips');
-    for (const [id, f] of Object.entries(C.FEET)) {
-      const owned = m.save.feetOwned.includes(id);
-      const c = el('button', `chip ${m.save.feet === id ? 'on' : ''}`, `${f.name}`);
-      if (!owned) c.appendChild(el('span', 'cost', `${f.cost}`));
-      c.disabled = !owned && m.save.scrap < f.cost;
-      c.addEventListener('click', () => app.buyFeet(id));
-      feetRow.appendChild(c);
-    }
-    up.appendChild(el('div', 'row', 'Feet'));
-    up.appendChild(feetRow);
-    const levelRow = (label, levels, value, key) => {
-      const row = el('div', 'chips');
-      levels.forEach((lv, i) => {
-        const c = el('button', `chip ${value === i ? 'on' : ''}`, lv.name);
-        if (i > value) c.appendChild(el('span', 'cost', `${lv.cost}`));
-        c.disabled = i > value + 1 || (i > value && m.save.scrap < lv.cost);
-        c.addEventListener('click', () => app.buyLevel(key, i));
-        row.appendChild(c);
-      });
-      up.appendChild(el('div', 'row', label));
-      up.appendChild(row);
+    return row;
+  }
+
+  function drawerNode(m) {
+    const d = el('div', 'drawer');
+    const head = el('div', 'drawer-head');
+    head.appendChild(el('h3', '', drawer === 'parts' ? 'PARTS' : drawer === 'paint' ? 'PAINT SHOP' : 'MUTATORS'));
+    head.appendChild(btn('CLOSE', 'small cream', () => {
+      drawer = '';
+      workshop(m);
+    }));
+    d.appendChild(head);
+    const body = el('div', 'drawer-body');
+    const row = (label, chips) => {
+      body.appendChild(el('div', 'drawer-label', label));
+      const r = el('div', 'chips');
+      for (const c of chips) r.appendChild(c);
+      body.appendChild(r);
     };
-    levelRow('Hips', C.HIPS_LEVELS, m.save.hips, 'hips');
-    const chassisRow = el('div', 'chips');
-    for (const [id, ch] of Object.entries(C.CHASSIS)) {
-      const owned = m.save.chassisOwned.includes(id);
-      const c = el('button', `chip ${m.save.chassis === id ? 'on' : ''}`, ch.name);
-      if (!owned) c.appendChild(el('span', 'cost', `${ch.cost}`));
-      c.disabled = !owned && m.save.scrap < ch.cost;
-      c.addEventListener('click', () => app.buyChassis(id));
-      chassisRow.appendChild(c);
-    }
-    up.appendChild(el('div', 'row', 'Chassis'));
-    up.appendChild(chassisRow);
-    levelRow('Cradle', C.CRADLE_LEVELS, m.save.cradle, 'cradle');
-    levelRow('Mechanic', C.MECHANIC_LEVELS, m.save.mechanic, 'mechanic');
-    grid.appendChild(up);
-    // --- Cosmetics
-    const cos = el('div', 'panel');
-    cos.appendChild(el('h3', '', 'PAINT SHOP'));
-    const cosRow = (label, list, value, key) => {
-      const row = el('div', 'chips');
-      for (const item of list) {
-        const owned = m.save.cosmetics.includes(item.id);
-        const c = el('button', `chip ${value === item.id ? 'on' : ''}`, item.name);
-        if (item.color) {
-          const sw = el('span', 'swatch');
-          sw.style.cssText = `display:inline-block;width:14px;height:14px;border-radius:4px;border:2px solid #2a1e1a;margin-right:6px;vertical-align:middle;background:${item.color}`;
-          c.prepend(sw);
-        }
-        if (!owned) c.appendChild(el('span', 'cost', `${item.cost}`));
-        c.disabled = !owned && m.save.scrap < item.cost;
-        c.addEventListener('click', () => app.buyCosmetic(key, item.id));
-        row.appendChild(c);
+    const chip = (label, on, cost, disabled, onClick, swatch) => {
+      const c = el('button', `chip ${on ? 'on' : ''}`, label);
+      c.type = 'button';
+      if (swatch) {
+        const sw = el('span', 'chip-swatch');
+        sw.style.background = swatch;
+        c.prepend(sw);
       }
-      cos.appendChild(el('div', 'row', label));
-      cos.appendChild(row);
+      if (cost) c.appendChild(el('span', 'cost', String(cost)));
+      c.disabled = disabled;
+      c.addEventListener('click', onClick);
+      return c;
     };
-    cosRow('Paint', PAINTS, m.save.paint, 'paint');
-    cosRow('Stickers', STICKERS, m.save.sticker, 'sticker');
-    cosRow('Cargo hat', HATS, m.save.hat, 'hat');
-    cosRow('Horn', HORNS, m.save.horn, 'horn');
-    grid.appendChild(cos);
-    if (m.results) grid.prepend(resultsCard(m.results, m, true));
+    const s = m.save;
+    if (drawer === 'parts') {
+      row('Feet', Object.entries(C.FEET).map(([id, f]) => chip(f.name, s.feet === id, s.feetOwned.includes(id) ? 0 : f.cost, !s.feetOwned.includes(id) && s.scrap < f.cost, () => app.buyFeet(id))));
+      const level = (label, levels, value, key) => row(label, levels.map((lv, i) => chip(lv.name, value === i, i > value ? lv.cost : 0, i > value + 1 || (i > value && s.scrap < lv.cost), () => app.buyLevel(key, i))));
+      level('Hips', C.HIPS_LEVELS, s.hips, 'hips');
+      row('Chassis', Object.entries(C.CHASSIS).map(([id, ch]) => chip(ch.name, s.chassis === id, s.chassisOwned.includes(id) ? 0 : ch.cost, !s.chassisOwned.includes(id) && s.scrap < ch.cost, () => app.buyChassis(id))));
+      level('Cradle', C.CRADLE_LEVELS, s.cradle, 'cradle');
+      level('Mechanic', C.MECHANIC_LEVELS, s.mechanic, 'mechanic');
+    } else if (drawer === 'paint') {
+      const cos = (label, list, value, key) => row(label, list.map((item) => chip(item.name, value === item.id, s.cosmetics.includes(item.id) ? 0 : item.cost, !s.cosmetics.includes(item.id) && s.scrap < item.cost, () => app.buyCosmetic(key, item.id), item.color)));
+      cos('Paint', PAINTS, s.paint, 'paint');
+      cos('Sticker', STICKERS, s.sticker, 'sticker');
+      cos('Cargo hat', HATS, s.hat, 'hat');
+      cos('Horn', HORNS, s.horn, 'horn');
+    } else {
+      row(m.isHost ? 'Change the rules' : `${m.hostName || 'Host'} picks`, MUTATOR_IDS.map((id) => {
+        const on = m.setup.mutators.includes(id);
+        return chip(MUTATORS[id].name, on, 0, !m.isHost, () => app.setSetup({ ...m.setup, mutators: on ? m.setup.mutators.filter((x) => x !== id) : [...m.setup.mutators, id] }));
+      }));
+    }
+    d.appendChild(body);
+    return d;
+  }
+
+  /** The workshop: the lobby. `m` is the model built by the app each refresh. */
+  function workshop(m) {
+    lastModel = m;
+    const s = el('div', `screen hub ${drawer ? 'drawer-open' : ''}`);
+    const panel = el('div', 'hub-panel');
+    panel.appendChild(modes(m));
+    panel.appendChild(routeCard(m));
+    // the drawers: parts, paint and (once the first biome is done, or when the host set some) mutators
+    const tools = el('div', 'tools');
+    const toolBtn = (id, label) => {
+      const b = btn(label, `tool ${drawer === id ? 'on' : ''}`, () => {
+        drawer = drawer === id ? '' : id;
+        workshop(m);
+      });
+      tools.appendChild(b);
+    };
+    toolBtn('parts', 'PARTS');
+    toolBtn('paint', 'PAINT');
+    const mutators = m.setup.mode !== 'daily' && (unlockedCount(m.save) > 4 || m.setup.mutators.length > 0);
+    if (mutators) toolBtn('mutators', m.setup.mutators.length ? `RULES ${m.setup.mutators.length}` : 'RULES');
+    if (m.players.size < 4 && !m.standalone) tools.appendChild(btn('INVITE', 'tool invite', () => app.invite()));
+    panel.appendChild(tools);
+    if (m.players.size > 1) panel.appendChild(seatsRow(m));
     if (m.standalone && m.isHost) {
-      const start = btn('START', 'big teal', () => app.start());
+      const start = btn('START', 'big teal start', () => app.start());
       start.id = 'start';
       start.disabled = !m.canStart;
-      grid.prepend(start);
+      panel.appendChild(start);
     }
-    s.appendChild(grid);
-    s.style.overflowY = 'auto';
-    s.style.justifyContent = 'flex-start';
+    // the last run's receipt, under what comes next
+    if (m.results) panel.appendChild(resultsCard(m.results, m, true));
+    s.appendChild(panel);
+    if (drawer === 'mutators' && !mutators) drawer = '';
+    if (drawer) s.appendChild(drawerNode(m));
     show('workshop', s);
   }
 
+  /** The run's receipt: what it was made of, the medal, the scrap; the next expedition when there is one. */
   function resultsCard(r, m, inLobby) {
-    const card = el('div', 'card');
-    card.appendChild(el('h2', '', r.finished ? (r.medal === 'gold' ? 'GOLD STRIDE' : r.medal === 'silver' ? 'SILVER STRIDE' : 'MADE IT') : r.why === 'tumbles' ? 'OUT OF TUMBLES' : 'RUN OVER'));
-    const medal = el('span', `medal ${r.medal ?? 'none'}`, r.finished ? (r.medal ?? 'bronze').toUpperCase() : r.kind === 'endless' ? `${r.distance} M` : `${r.progress}%`);
-    card.appendChild(medal);
-    const grid = el('div', 'stat-grid');
+    const card = el('div', `receipt ${inLobby ? 'small' : ''}`);
+    const medal = r.finished ? r.medal ?? 'bronze' : 'none';
+    const head = el('div', 'receipt-head');
+    const stamp = el('div', `medal-stamp ${medal}`);
+    stamp.appendChild(el('span', '', r.finished ? (medal === 'none' ? '✓' : MEDAL_WORD[medal][0]) : r.kind === 'endless' ? `${r.distance}` : `${r.progress}%`));
+    head.appendChild(stamp);
+    const words = el('div', 'receipt-words');
+    words.appendChild(el('h2', '', r.finished ? (medal === 'gold' ? 'GOLD STRIDE' : medal === 'silver' ? 'SILVER STRIDE' : 'MADE IT') : r.kind === 'endless' ? `${r.distance} METRES` : r.why === 'tumbles' ? 'OUT OF TUMBLES' : 'RUN OVER'));
+    const ids = /^e([1-6])-([1-4])$/.exec(r.courseId ?? '');
+    const sub = r.kind === 'expedition' && ids ? expeditionInfo(Number(ids[1]) - 1, Number(ids[2]) - 1).name : r.kind === 'daily' ? 'Daily Stride' : 'Endless Stride';
+    words.appendChild(el('div', 'receipt-sub', sub));
+    head.appendChild(words);
+    card.appendChild(head);
+    if (inLobby) {
+      // in the hub: one line under the stamp, the details were on the results screen
+      words.appendChild(el('div', 'receipt-line', `${fmtTime(r.time)} · ${r.tumbles} ${r.tumbles === 1 ? 'tumble' : 'tumbles'} · cargo ${Math.round(r.cond * 100)}% · +${r.scrap} scrap`));
+      if (m?.setup?.mode === 'expedition' && r.kind === 'expedition' && r.finished) {
+        const next = expeditionInfo(m.setup.biome, m.setup.index);
+        if (next.id !== r.courseId) card.appendChild(el('div', 'receipt-next', `Next: ${next.name}`));
+      }
+      return card;
+    }
+    const grid = el('div', 'receipt-stats');
     const stat = (v, label) => {
-      const d = el('div', 'stat', String(v));
+      const d = el('div', 'rstat');
+      d.appendChild(el('b', '', String(v)));
       d.appendChild(el('small', '', label));
       grid.appendChild(d);
     };
     stat(fmtTime(r.time), 'Time');
     stat(r.tumbles, 'Tumbles');
     stat(`${Math.round(r.cond * 100)}%`, 'Cargo');
-    stat(`${r.grooveAvg}`, 'Groove');
+    stat(r.grooveAvg, 'Groove');
     stat(`+${r.scrap}`, 'Scrap');
     card.appendChild(grid);
-    if (r.legNames) {
-      const row = el('div', 'chips');
+    if (r.legNames && r.legNames.some((n) => n !== 'Bot')) {
+      const row = el('div', 'receipt-legs');
       r.legNames.forEach((n, i) => {
-        const chip = el('span', 'chip');
+        const chip = el('span', 'leg-name');
         const sw = el('span', 'swatch');
-        sw.style.cssText = `display:inline-block;width:12px;height:12px;border-radius:3px;border:2px solid #2a1e1a;margin-right:6px;background:${C.LEG_COLORS[i]}`;
+        sw.style.background = C.LEG_COLORS[i];
         chip.appendChild(sw);
         chip.appendChild(document.createTextNode(n));
         row.appendChild(chip);
       });
       card.appendChild(row);
     }
-    if (!inLobby) {
-      const row = el('div', 'row center');
-      row.style.marginTop = '12px';
-      if (m.isHost) row.appendChild(btn('WORKSHOP', 'teal', () => app.backToWorkshop()));
-      else row.appendChild(el('span', 'chip', `Waiting for ${m.hostName || 'host'}`));
-      card.appendChild(row);
-    }
+    const row = el('div', 'receipt-actions');
+    if (m.isHost) row.appendChild(btn('WORKSHOP', 'teal', () => app.backToWorkshop()));
+    else row.appendChild(el('span', 'waiting', `Waiting for ${m.hostName || 'the host'}`));
+    card.appendChild(row);
     return card;
   }
 
   function results(r, m) {
-    const s = el('div', 'screen');
+    const s = el('div', 'screen results');
     s.appendChild(resultsCard(r, m, false));
     show('results', s);
   }
 
   function closed(reason) {
     const s = el('div', 'screen');
-    const card = el('div', 'card closed');
+    const card = el('div', 'receipt closed');
     const text = reason === 'kicked' ? 'YOU WERE REMOVED' : reason === 'replaced' ? 'PLAYING IN ANOTHER TAB' : reason === 'disconnected' ? 'CONNECTION LOST' : 'LEFT THE WORKSHOP';
     card.appendChild(el('h2', '', text));
     const label = reason === 'disconnected' ? 'REJOIN' : reason === 'replaced' ? 'PLAY HERE' : 'PLAY';
@@ -311,6 +356,7 @@ export function createScreens(root, app) {
     const w = el('div', 'wheel');
     C.SIGNALS.forEach((label, i) => {
       const b = el('button', '', label);
+      b.type = 'button';
       b.appendChild(el('b', '', `${i + 1}`));
       b.addEventListener('click', () => onPick(C.SIGNAL_KEYS[i]));
       w.appendChild(b);
@@ -320,7 +366,7 @@ export function createScreens(root, app) {
 
   function paused() {
     const s = el('div', 'screen');
-    const card = el('div', 'card');
+    const card = el('div', 'receipt closed');
     card.appendChild(el('h2', '', 'PAUSED'));
     card.appendChild(btn('RESUME', 'big', () => app.resume()));
     s.appendChild(card);
@@ -333,5 +379,5 @@ export function createScreens(root, app) {
     setTimeout(() => t.remove(), 1800);
   }
 
-  return { title, workshop, results, closed, watching, wheel, paused, toast, clear, get name() { return currentName; }, get node() { return current; } };
+  return { title, workshop, results, closed, watching, wheel, paused, toast, clear, get name() { return currentName; }, get node() { return current; }, get drawer() { return drawer; } };
 }
