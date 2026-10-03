@@ -13,6 +13,7 @@ import { createWorkshopScene } from './workshop.js';
 import { joinRoom, player as sdkPlayer, save as sdkSave, badges as sdkBadges, leaderboards, settings, ui, events as sdkEvents, now as platformNow, onPlatform } from '../platform.js';
 import { loadSave, applyResult, walkerConfig, PAINTS, STICKERS, HATS, HORNS } from '../sim/save.js';
 import { signalSim } from '../sim/sim.js';
+import { SKILLS } from '../sim/bots.js';
 import { buildCourse, dailySpec, expeditionId } from '../sim/courses.js';
 import { scoreRun } from '../sim/score.js';
 import { ST } from '../sim/walker.js';
@@ -80,6 +81,7 @@ export async function startApp(params) {
   window.addEventListener('keydown', unlock);
   uiRoot.addEventListener('pointerdown', unlock);
 
+  window.__lw = { info: () => info(app), app, boot: 'starting' };
   app.workshop = createWorkshopScene(gfx, app.save);
   if (test === 'run') startTestRun(app, params);
   else {
@@ -91,6 +93,16 @@ export async function startApp(params) {
   window.__lw = {
     info: () => info(app),
     play: () => api(app, screens0).play(),
+    // test hook: the host hands every leg to the bots so a scripted run walks by itself
+    botsAll: () => {
+      if (!app.run || !app.hosting) return false;
+      app.run.sim.owners = ['bot', 'bot', 'bot', 'bot'];
+      app.run.sim.pilot = null;
+      app.run.sim.autonomous = true;
+      app.run.sim.bots.skill = SKILLS[2];
+      app.run.pilot = false;
+      return true;
+    },
     app,
   };
   requestAnimationFrame(function frame(t) {
