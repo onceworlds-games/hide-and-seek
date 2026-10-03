@@ -248,7 +248,7 @@ function platformCovers(course, x, z) {
 
 /**
  * Walk the path from start to goal: from every point there must be crossable ground within
- * one stride ahead, else a stone is added. A generated course is never uncrossable.
+ * one stride ahead, else a stone is added. A built course is never uncrossable.
  */
 export const REPAIR_STRIDE = 4; // the chassis bridges a gap: rear feet on one edge, front targets 2.2 m past the front hips
 

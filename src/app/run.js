@@ -11,7 +11,9 @@ import { createHazards3d } from '../render/hazards3d.js';
 import { createDecor } from '../render/decor.js';
 import { createFx } from '../render/fx.js';
 import { createChaseCamera } from '../render/camera.js';
-import { LEG_HEX } from '../render/scene.js';
+import { LEG_HEX, PALETTE } from '../render/scene.js';
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const SURF_FX = { 0: 'dust', 1: 'salt', 2: 'mud', 3: 'spark', 4: 'dust', 7: 'spark', 8: 'debris', 9: 'spark', 10: 'splash', 11: 'dust' };
 
@@ -73,6 +75,7 @@ export function createRun(opts) {
     render(dt, hudInfo) {
       const w = run.view;
       walker.update(w, dt, run.time);
+      run.updateGhost(w.t);
       hud3d.update(w, run.time, run.myLeg);
       hazards.update(w.t, sim.dyn, terrain.water, w);
       decor.update(run.time, w.x);
@@ -86,7 +89,39 @@ export function createRun(opts) {
       fx.setBudget(q === 'low' ? 0.4 : q === 'medium' ? 0.7 : 1);
       hud3d.setBlob(q === 'low');
     },
+    /** A translucent chassis replaying a saved best run (x, y, z, yaw samples at 4 Hz). */
+    setGhost(frames) {
+      if (run.ghost) {
+        gfx.scene.remove(run.ghost.mesh);
+        run.ghost.mesh.geometry.dispose();
+        run.ghost.mesh.material.dispose();
+        run.ghost = null;
+      }
+      if (!frames || frames.length < 8) return;
+      const mesh = new THREE.Mesh(new RoundedBoxGeometry(4.4, 0.9, 3.0, 3, 0.2), new THREE.MeshBasicMaterial({ color: PALETTE.cream, transparent: true, opacity: 0.32, depthWrite: false }));
+      mesh.rotation.order = 'YZX';
+      mesh.renderOrder = 4;
+      gfx.scene.add(mesh);
+      run.ghost = { mesh, frames };
+    },
+    updateGhost(t) {
+      const g = run.ghost;
+      if (!g) return;
+      const n = g.frames.length / 4;
+      const f = Math.max(0, Math.min(n - 1.001, t * 4));
+      const i = Math.floor(f);
+      const k = f - i;
+      const at = (j, c) => g.frames[Math.min(n - 1, j) * 4 + c];
+      const x = (at(i, 0) * (1 - k) + at(i + 1, 0) * k) / 10;
+      const y = (at(i, 1) * (1 - k) + at(i + 1, 1) * k) / 10;
+      const z = (at(i, 2) * (1 - k) + at(i + 1, 2) * k) / 10;
+      const yaw = (at(i, 3) * (1 - k) + at(i + 1, 3) * k) / 100;
+      g.mesh.position.set(x, y - 0.1, z);
+      g.mesh.rotation.set(0, -yaw, 0);
+      g.mesh.visible = t < n / 4 + 1;
+    },
     dispose() {
+      run.setGhost(null);
       gfx.scene.remove(terrain.group);
       terrain.dispose();
       hazards.dispose();

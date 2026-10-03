@@ -1,4 +1,4 @@
-// Seeded randomness. Everything generated (courses, hazard phases, bot jitter)
+// Seeded randomness. Everything built from a seed (courses, hazard phases, bot jitter)
 // comes from one of these so a seed replays exactly.
 
 export function hashString(s) {

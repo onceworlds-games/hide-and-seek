@@ -104,7 +104,7 @@ function feetStudy() {
 }
 
 function seedsStudy() {
-  console.log('\nGenerated courses with pro bots (must all finish):');
+  console.log('\nBuilt courses with pro bots (must all finish):');
   let fails = 0;
   const N = quick ? 6 : 20;
   for (let i = 0; i < N; i++) {
@@ -118,7 +118,7 @@ function seedsStudy() {
   const e = buildCourse({ kind: 'endless', seed: 'endless' });
   const er = playRun(e, 2, 1, defaultCfg());
   console.log(`  endless pro distance ${er.distance} m of ${Math.round(e.length)} (${er.finished ? 'finished' : er.why}), tumbles ${er.tumbles}`);
-  console.log(fails ? `  ${fails} generated courses failed` : `  all ${N} generated courses finished`);
+  console.log(fails ? `  ${fails} built courses failed` : `  all ${N} built courses finished`);
 }
 
 function parMode() {

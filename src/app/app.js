@@ -302,7 +302,14 @@ function attachRoom(app, room) {
       app.screens.closed(reason);
     },
     onResults: (r) => {
-      if (app.screen === 'results' || app.screen === 'workshop') takeResults(app, r);
+      if (app.screen === 'play' && !app.hosting && app.run && r && r.mid === app.run.mid) {
+        // the host has posted the results: everyone sees the card while the room winds down
+        takeResults(app, r);
+        app.screen = 'results';
+        app.input.setTouch(null);
+        app.screens.results(app.results, { isHost: false, hostName: app.room.players.get(app.room.host)?.name ?? '' });
+        app.audio.music.stop();
+      } else if (app.screen === 'results' || app.screen === 'workshop') takeResults(app, r);
     },
   });
   app.hosting = app.net.isHost;
@@ -464,6 +471,7 @@ function startRunFromRecord(app, run, match) {
   app.audio.music.setGroove(0);
   app.hud.st.pilot = app.pilot;
   app.ghostPlay = run.ghost && app.save.ghosts[app.course.id] ? { frames: app.save.ghosts[app.course.id].f, t: app.save.ghosts[app.course.id].t } : null;
+  if (app.ghostPlay) app.run.setGhost(app.ghostPlay.frames);
   app.ghostRec = app.hosting && app.course.kind === 'expedition' ? [] : null;
   app.run.walker.setCargo(app.course.cargo, app.save.hat);
   hintOnce(app, 'start', app.pilot ? 'STICK STEERS · HOLD TO TAKE A FOOT' : 'HOLD LIFT · AIM · RELEASE');
@@ -486,6 +494,7 @@ function disposeRun(app) {
 function leaveMatch(app, prev) {
   const r = app.room?.state.results;
   disposeRun(app);
+  app.finishing = false;
   app.screen = 'workshop';
   if (r && r.mid === prev?.id) takeResults(app, r);
   showWorkshop(app);
@@ -579,6 +588,10 @@ function onSimEvent(app, e) {
       break;
     case 'snap':
       a.snap();
+      break;
+    case 'nofoot':
+      a.snap();
+      app.hud.flash('NO FOOTING', 700);
       break;
     case 'burn':
       a.burn();
@@ -811,7 +824,6 @@ function playFrame(app, dt) {
         if (app.screen === 'play' && app.run) finishRun(app);
       }, 1200);
     }
-    if (!app.room && (sim.w.finished || sim.w.over) && app.test === 'run') void 0;
   } else {
     const v = app.net.clientView(dt);
     if (v) run.view = v;

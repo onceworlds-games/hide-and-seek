@@ -5,7 +5,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { serve, launch, sleep } from './cdp.mjs';
 
-const secs = Number(process.argv[2] ?? 30);
+const secs = Number(process.argv[2] ?? 150);
 const outDir = process.argv[3] ?? 'smoke';
 mkdirSync(outDir, { recursive: true });
 const { server, port } = await serve('dist');
@@ -32,6 +32,7 @@ console.log('workshop', JSON.stringify(await info()));
 await b.evaluate(`document.querySelector('#start')?.click()`);
 await sleep(2500);
 console.log('play', JSON.stringify(await info()));
+console.log('bots take every leg:', await b.evaluate('window.__lw.botsAll()'));
 const t0 = Date.now();
 let last = '';
 while (Date.now() - t0 < secs * 1000) {
@@ -43,6 +44,11 @@ while (Date.now() - t0 < secs * 1000) {
   if (i && (i.screen === 'results' || i.screen === 'workshop')) break;
 }
 await shot('3-play');
+const i2 = await info();
+if (i2 && (i2.screen === 'results' || i2.screen === 'workshop')) {
+  await shot('4-results');
+  console.log('results', JSON.stringify(i2));
+}
 await sleep(500);
 console.log(errors.length ? `ERRORS (${errors.length}):\n${[...new Set(errors)].slice(0, 20).join('\n')}` : 'no errors');
 b.close();
