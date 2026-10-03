@@ -280,3 +280,32 @@ test('the same seed and inputs replay exactly', () => {
   }
   assert.deepEqual(snapshot(a), snapshot(b));
 });
+
+test('pilot mode: the stick steers the bots, holding Lift takes the highlighted foot, and pilot mode can end mid-run', () => {
+  const sim = createSim({ course: flat(), owners: ['bot', 'bot', 'bot', 'bot'], pilot: 'me', botSkill: 2, seed: 'pilot' });
+  const w = sim.w;
+  setHumanInput(sim, 0, { x: 0, y: 1, lift: false, brace: false });
+  run(sim, 6);
+  assert.ok(w.x > 7, `the bots walked on the pilot's intent: x=${w.x}`);
+  const x1 = w.x;
+  setHumanInput(sim, 0, { x: 0, y: 0, lift: false, brace: false });
+  run(sim, 3);
+  assert.ok(w.x - x1 < 1.5, 'no intent, no walking');
+  // take the highlighted foot
+  setHumanInput(sim, 0, { x: 0, y: 1, lift: true, brace: false });
+  run(sim, 0.4);
+  assert.equal(sim.taken, true);
+  assert.equal(w.legs[sim.pilotLeg].st, ST.SWING, 'the taken foot is up');
+  setHumanInput(sim, 0, { x: 0, y: 1, lift: false, brace: false });
+  run(sim, 0.5);
+  assert.equal(sim.taken, false, 'released: the bots have it back');
+  // a second human arrives: pilot mode ends, the former pilot drives leg 1 directly
+  sim.pilot = null;
+  sim.taken = false;
+  sim.owners = ['bot', 'me', 'bot', 'h2'];
+  setHumanInput(sim, 1, { x: 0, y: 1, lift: false, brace: false });
+  setHumanInput(sim, 3, { x: 0, y: 1, lift: false, brace: false });
+  run(sim, 4);
+  assert.ok(finiteWalker(w));
+  assert.equal(w.tumbles, 0);
+});
