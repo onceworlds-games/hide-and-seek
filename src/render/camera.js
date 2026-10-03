@@ -58,7 +58,8 @@ export function createChaseCamera(camera) {
       const aheadX = w.vx * 0.9;
       const aheadZ = w.vz * 0.9;
       const yaw = w.yaw + st.orbit;
-      const dist = st.dist * st.zoom * (1 + Math.min(0.25, speed * 0.05));
+      const portrait = camera.aspect < 1 ? 0.82 : 1; // a phone held upright sits closer
+      const dist = st.dist * st.zoom * portrait * (1 + Math.min(0.25, speed * 0.05));
       want.set(w.x - Math.cos(yaw) * dist + aheadX * 0.3, w.y + dist * st.pitch + 1.5, w.z - Math.sin(yaw) * dist + aheadZ * 0.3);
       // stay above the ground
       sample(course, dyn, 0, want.x, want.z, gS);
