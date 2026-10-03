@@ -27,7 +27,7 @@ export function createSim(opts) {
     dyn: { crumble: new Float32Array(Math.max(1, course.stoneCount)).fill(-1), gone: new Float32Array(Math.max(1, course.stoneCount)).fill(-1) },
     owners: (opts.owners ?? ['bot', 'bot', 'bot', 'bot']).slice(0, 4),
     pilot: opts.pilot ?? null,
-    pilotLeg: 0,
+    pilotLeg: 2, // a rear foot first: the one nearest the camera, easiest to watch land
     taken: false,
     bots: createBots(opts.botSkill ?? cfg.mechanic ?? 0, makeRng(`${opts.seed ?? course.seed}-bots`)),
     autonomous: !!opts.autonomous,

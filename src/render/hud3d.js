@@ -28,14 +28,15 @@ export function createHud3d(scene) {
   group.add(line);
   // COM dot: a disc with a dark ring
   const comGeo = new THREE.CircleGeometry(0.32, 24);
-  const comMat = new THREE.MeshBasicMaterial({ color: 0x3fcf9a, depthWrite: false, transparent: true, opacity: 0.95 });
+  // the weight dot shows through the chassis: it is the one thing on the ground that must never hide
+  const comMat = new THREE.MeshBasicMaterial({ color: 0x3fcf9a, depthWrite: false, depthTest: false, transparent: true, opacity: 0.95 });
   const com = new THREE.Mesh(comGeo, comMat);
   com.rotation.x = -Math.PI / 2;
-  com.renderOrder = 7;
+  com.renderOrder = 11;
   group.add(com);
-  const comRing = new THREE.Mesh(new THREE.RingGeometry(0.32, 0.42, 24), new THREE.MeshBasicMaterial({ color: PALETTE.ink, depthWrite: false, transparent: true, opacity: 0.9 }));
+  const comRing = new THREE.Mesh(new THREE.RingGeometry(0.32, 0.42, 24), new THREE.MeshBasicMaterial({ color: PALETTE.ink, depthWrite: false, depthTest: false, transparent: true, opacity: 0.9 }));
   comRing.rotation.x = -Math.PI / 2;
-  comRing.renderOrder = 7;
+  comRing.renderOrder = 10;
   group.add(comRing);
   // Targets per leg: a ring in the leg colour with the mark inside; an X when invalid.
   const targets = [];
@@ -89,8 +90,8 @@ export function createHud3d(scene) {
         poly.visible = true;
         let k = 0;
         for (let i = 1; i < n - 1; i++) {
-          const tri = [0, i, i + 1];
-          for (const j of tri) {
+          for (let q = 0; q < 3; q++) {
+            const j = q === 0 ? 0 : i + q - 1;
             polyPos[k++] = hull[j * 2];
             polyPos[k++] = groundY;
             polyPos[k++] = hull[j * 2 + 1];
@@ -139,6 +140,10 @@ export function createHud3d(scene) {
         t.mark.scale.setScalar(sc);
         t.x.scale.setScalar(sc);
         t.ring.material.opacity = own ? 1 : 0.6;
+        // your own landing spot shows through the chassis too
+        t.ring.material.depthTest = t.mark.material.depthTest = t.x.material.depthTest = !own;
+        t.ring.renderOrder = own ? 12 : 8;
+        t.mark.renderOrder = t.x.renderOrder = own ? 13 : 9;
       }
       blob.position.set(w.x, groundY + 0.01, w.z);
       blob.scale.setScalar(Math.max(0.3, 1 - (w.y - groundY - 2.1) * 0.15));

@@ -16,7 +16,7 @@ import { signalSim } from '../sim/sim.js';
 import { SKILLS } from '../sim/bots.js';
 import { buildCourse, dailySpec, expeditionId } from '../sim/courses.js';
 import { scoreRun } from '../sim/score.js';
-import { ST } from '../sim/walker.js';
+import { ST, hipWorld } from '../sim/walker.js';
 import * as C from '../sim/constants.js';
 
 const JOIN_OPTS = { private: true, maxPlayers: 4, minPlayers: 1, lobby: 'bar' };
@@ -476,7 +476,10 @@ function startRunFromRecord(app, run, match) {
   if (app.ghostPlay) app.run.setGhost(app.ghostPlay.frames);
   app.ghostRec = app.hosting && app.course.kind === 'expedition' ? [] : null;
   app.run.walker.setCargo(app.course.cargo, app.save.hat);
-  hintOnce(app, 'start', app.pilot ? 'STICK STEERS · HOLD TO TAKE A FOOT' : 'HOLD LIFT · AIM · RELEASE');
+  app.coachSt = null;
+  const touch = app.input.st.touch;
+  if (app.pilot) hintOnce(app, 'walk', touch ? 'STICK · WALK TO THE GATE' : 'HOLD W · WALK TO THE GATE');
+  else if (!app.watching) hintOnce(app, 'leg', touch ? 'HOLD LIFT · AIM · LET GO' : 'HOLD SPACE · AIM · LET GO');
 }
 
 function disposeRun(app) {
@@ -574,6 +577,47 @@ function onHostChange(app, isHost) {
     app.net.net.haveA = app.net.net.haveB = false;
   }
 }
+
+/**
+ * The first runs teach in context: one short line at the moment it matters (each at most three runs,
+ * remembered in the save). Pilots learn to walk, to take a foot, to aim it and to pick another; leg
+ * players learn to push and to step a trailing foot; everyone learns to keep the dot inside.
+ */
+function coach(app, w, touch, dt) {
+  const c = app.coachSt ?? (app.coachSt = { t: 0, took: false, tookT: -1, plantT: -1, still: 0, trail: 0, stepped: false });
+  c.t += dt;
+  if (app.watching || w.tumbling > 0 || w.finished) return;
+  const lift = app.input.st.lift;
+  // what the player has done is tracked every frame; a hint waits for the one on screen to clear
+  if (app.pilot) {
+    if (lift && !c.took) {
+      c.took = true;
+      c.tookT = c.t;
+      // the follow-up to what they just did replaces the prompt that asked for it
+      hintOnce(app, 'aim', 'AIM · LET GO TO PLANT');
+    }
+    if (c.took && !lift && c.plantT < 0) c.plantT = c.t;
+  } else if (lift) c.stepped = true;
+  if (app.hud.st.hintT > 0) return;
+  if (app.pilot) {
+    if (c.t > 10 && !c.took) hintOnce(app, 'take', touch ? 'HOLD TAKE FOOT' : 'HOLD SPACE · TAKE A FOOT');
+    if (c.plantT >= 0 && c.t - c.plantT > 4) hintOnce(app, 'cycle', touch ? 'LEG PICKS ANOTHER FOOT' : 'TAB PICKS ANOTHER FOOT');
+  } else if (app.myLeg >= 0 && app.myLeg < 4) {
+    const leg = w.legs[app.myLeg];
+    const pushing = Math.hypot(app.input.st.x, app.input.st.y) > 0.3;
+    c.still = leg.st === ST.STANCE && !pushing && !lift ? c.still + dt : 0;
+    if (c.still > 5 && c.t > 6) hintOnce(app, 'push', touch ? 'STICK PUSHES THE BODY' : 'W PUSHES THE BODY');
+    // your planted foot trails far behind its hip: it has no push left, step it forward
+    hipWorld(w, app.myLeg, coachHip);
+    const along = (leg.fx - coachHip.x) * Math.cos(w.yaw) + (leg.fz - coachHip.z) * Math.sin(w.yaw);
+    c.trail = leg.st === ST.STANCE && along < -1.4 ? c.trail + dt : 0;
+    if (c.trail > 1.5) hintOnce(app, 'step', touch ? 'LIFT · STEP IT FORWARD' : 'SPACE · STEP IT FORWARD');
+  }
+  // the dot only means something to someone stepping a foot
+  const stepping = app.pilot ? c.took : c.stepped;
+  if (stepping && w.margin < -0.3 && w.planted >= 2 && c.t > 4) hintOnce(app, 'dot', 'KEEP THE DOT INSIDE');
+}
+const coachHip = { x: 0, y: 0, z: 0 };
 
 function hintOnce(app, key, text) {
   const n = app.save.hints[key] ?? 0;
@@ -882,8 +926,11 @@ function playFrame(app, dt) {
   audio.music.setGroove(w.groove);
   audio.wind(w.gust);
   if (w.cargo.tiltDeg > 8 && !throttle(app, 'rattle', 350)) audio.rattle(Math.min(1, w.cargo.tiltDeg / 25));
+  coach(app, w, touch, dt);
   // Stuck hint: everything planted, no progress
-  if (w.planted === 4 && Math.hypot(w.vx, w.vz) < 0.05 && !w.finished && w.tumbling <= 0) {
+  // (only while the player is trying to go somewhere: standing still on purpose is not being stuck)
+  const trying = Math.hypot(input.st.x, input.st.y) > 0.3;
+  if (trying && w.planted === 4 && Math.hypot(w.vx, w.vz) < 0.05 && !w.finished && w.tumbling <= 0) {
     app.stuckT += dt;
     if (app.stuckT > 6) {
       app.stuckT = 0;
