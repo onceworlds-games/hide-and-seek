@@ -132,8 +132,8 @@ export const TEMPLATES = {
   grates(ctx, x0, tier, rng) {
     const len = 20;
     corridor(ctx, x0, x0 + len, 7, S.GRATE, ctx.elev);
-    const pools = 2 + tier;
-    for (let i = 0; i < pools; i++) fillDisc(ctx.t, x0 + 5 + ((i + 0.5) * (len - 8)) / pools, rng.range(-4, 4), rng.range(1.6, 2 + tier * 0.4), S.LAVA, ctx.elev - 0.4);
+    const pools = 1 + tier;
+    for (let i = 0; i < pools; i++) fillDisc(ctx.t, x0 + 5 + ((i + 0.5) * (len - 8)) / pools, rng.range(-4, 4), rng.range(1.3, 1.4 + tier * 0.3), S.LAVA, ctx.elev - 0.4);
     setPath(ctx, x0, x0 + len, (x) => wander(ctx, x, 2.5));
     return len;
   },
@@ -273,10 +273,10 @@ export const TEMPLATES = {
   bars(ctx, x0, tier, rng) {
     const len = 20;
     corridor(ctx, x0, x0 + len, 6.5);
-    const n = 1 + tier;
+    const n = Math.min(2, tier);
     for (let i = 0; i < n; i++) {
       const id = ctx.bars.length;
-      ctx.bars.push({ id, kind: 'bar', x: x0 + 5 + ((i + 0.5) * (len - 8)) / n, z: 0, len: 6.5, speed: (0.9 + tier * 0.25) * rng.sign(), phase: rng.range(0, 6.28), swing: false, h: 0.3 });
+      ctx.bars.push({ id, kind: 'bar', x: x0 + 5 + ((i + 0.5) * (len - 8)) / n, z: 0, len: 5.5, speed: (0.8 + tier * 0.2) * rng.sign(), phase: rng.range(0, 6.28), swing: false, h: 0.3 });
     }
     setPath(ctx, x0, x0 + len, () => 0);
     return len;
@@ -284,7 +284,7 @@ export const TEMPLATES = {
   swingbars(ctx, x0, tier, rng) {
     const len = 20;
     corridor(ctx, x0, x0 + len, 6.5);
-    const n = 1 + tier;
+    const n = tier;
     for (let i = 0; i < n; i++) {
       const id = ctx.bars.length;
       const side = rng.sign();
@@ -299,7 +299,7 @@ export const TEMPLATES = {
     const n = 1 + Math.min(2, tier);
     for (let i = 0; i < n; i++) {
       const id = ctx.gates.length;
-      ctx.gates.push({ id, kind: 'gate', x: x0 + 6 + i * ((len - 8) / n), period: 7 - tier * 0.8, phase: rng.range(0, 6.28), open: 0.5 - tier * 0.05 });
+      ctx.gates.push({ id, kind: 'gate', x: x0 + 6 + i * ((len - 8) / n), period: 8 - tier * 0.6, phase: rng.range(0, 6.28), open: 0.5 });
     }
     setPath(ctx, x0, x0 + len, () => 0);
     return len;
@@ -322,7 +322,7 @@ export const TEMPLATES = {
     const n = 1 + tier;
     for (let i = 0; i < n; i++) {
       const id = ctx.boulders.length;
-      ctx.boulders.push({ id, kind: 'boulder', x0: x0 + 1, x1: x0 + len - 1, z: rng.range(-3.5, 3.5), r: 1.2, speed: 3.5 + tier * 0.8, phase: rng.range(0, 20), period: 7 - tier * 0.8 });
+      ctx.boulders.push({ id, kind: 'boulder', x0: x0 + 1, x1: x0 + len - 1, z: rng.range(-3.5, 3.5), r: 1.2, speed: 4 + tier, phase: rng.range(0, 20), period: 11 - tier });
     }
     setPath(ctx, x0, x0 + len, (x) => wander(ctx, x, 2.5));
     return len;

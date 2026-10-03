@@ -25,7 +25,7 @@ export function makeLeg(i) {
   return {
     i, st: ST.STANCE, fx: 0, fy: 0, fz: 0, tx: 0, ty: 0, tz: 0, lx: 0, ly: 0, lz: 0, sw: 0, sink: 0, stun: 0, brace: 0, braceCd: 0,
     platform: -1, surf: 0, grip: 1, pushF: 0, pushR: 0, reach: C.L_MAX, valid: true, snapped: false, sx: 0, sz: 0, hitCd: 0, springT: 0,
-    forced: 0, slipping: false, feet: 'std', absent: false, inert: false, burnT: 0, lastWhy: '',
+    forced: 0, slipping: false, feet: 'std', absent: false, inert: false, burnT: 0, lastWhy: '', slab: -1,
   };
 }
 
@@ -78,7 +78,7 @@ function placeAt(w, course, spot, dyn) {
   w.belly = 0;
   w.airT = 0;
   w.y = spot.y + C.HIP_H;
-  const d = dyn ?? { crumble: new Float32Array(0) };
+  const d = dyn ?? { crumble: new Float32Array(0), gone: new Float32Array(0) };
   for (let i = 0; i < 4; i++) {
     const leg = w.legs[i];
     hipWorld(w, i, hipS);
@@ -99,6 +99,7 @@ function placeAt(w, course, spot, dyn) {
     leg.platform = -1;
     leg.springT = 0;
     leg.slipping = false;
+    leg.slab = -1;
     leg.pushF = leg.pushR = 0;
     leg.reach = w.cfg.reach;
     if (leg.absent) leg.st = ST.STUN;
@@ -120,7 +121,18 @@ function gripOf(w, leg, surf) {
   return g;
 }
 
-function burn(w, leg, why) {
+/** The foot leaves its slab: the slab heals (a slab only drops under a foot that stays). */
+function leaveSlab(w, leg, dyn) {
+  if (leg.slab >= 0 && dyn && leg.slab < dyn.crumble.length) {
+    let other = false;
+    for (let k = 0; k < 4; k++) if (k !== leg.i && w.legs[k].slab === leg.slab && w.legs[k].st === ST.STANCE) other = true;
+    if (!other) dyn.crumble[leg.slab] = -1;
+  }
+  leg.slab = -1;
+}
+
+function burn(w, leg, why, dyn) {
+  leaveSlab(w, leg, dyn);
   leg.st = ST.STUN;
   leg.stun = why === 'hit' ? C.HIT_STUN : C.BURN_STUN;
   leg.platform = -1;
@@ -131,7 +143,8 @@ function burn(w, leg, why) {
   w.events.push({ type: why, leg: leg.i, x: leg.fx, y: leg.fy, z: leg.fz });
 }
 
-function liftLeg(w, leg, forced, why) {
+function liftLeg(w, leg, forced, why, dyn) {
+  leaveSlab(w, leg, dyn);
   leg.st = ST.SWING;
   leg.sw = 0;
   leg.lx = leg.fx;
@@ -146,10 +159,10 @@ function liftLeg(w, leg, forced, why) {
   if (why) w.events.push({ type: why, leg: leg.i, x: leg.fx, y: leg.fy, z: leg.fz });
 }
 
-function knock(w, leg, dx, dz, dist, why) {
+function knock(w, leg, dx, dz, dist, why, dyn) {
   if (leg.st === ST.STUN || leg.absent) return;
   const wasPlanted = leg.st === ST.STANCE;
-  liftLeg(w, leg, 0.5, why);
+  liftLeg(w, leg, 0.5, why, dyn);
   if (!wasPlanted) {
     leg.lx = leg.fx;
     leg.ly = leg.fy;
@@ -204,8 +217,8 @@ function plant(w, leg, course, dyn) {
   leg.fx = leg.tx;
   leg.fz = leg.tz;
   leg.fy = gS.h;
-  if (isDeadly(base)) return burn(w, leg, base === C.S.LAVA ? 'burn' : 'fall');
-  if (base === C.S.SHORE && course.water && waterLevel(course, w.t) - gS.h > 0.9) return burn(w, leg, 'soak');
+  if (isDeadly(base)) return burn(w, leg, base === C.S.LAVA ? 'burn' : 'fall', dyn);
+  if (base === C.S.SHORE && course.water && waterLevel(course, w.t) - gS.h > 0.9) return burn(w, leg, 'soak', dyn);
   leg.st = ST.STANCE;
   leg.platform = gS.platform;
   leg.surf = gS.s;
@@ -214,8 +227,9 @@ function plant(w, leg, course, dyn) {
   leg.slipping = false;
   leg.sw = 0;
   leg.forced = 0;
-  if (base === C.S.CRUMBLE && gS.f >= 0 && gS.f < dyn.crumble.length && dyn.crumble[gS.f] < 0) {
-    dyn.crumble[gS.f] = w.t;
+  if (base === C.S.CRUMBLE && gS.f >= 0 && gS.f < dyn.crumble.length) {
+    leg.slab = gS.f;
+    if (dyn.crumble[gS.f] < 0) dyn.crumble[gS.f] = w.t;
     w.events.push({ type: 'crack', leg: leg.i, x: leg.fx, y: leg.fy, z: leg.fz, slab: gS.f });
   }
   if (SURF[base]?.safe && base !== C.S.CRUMBLE && gS.platform < 0 && gS.f < 1000) {
@@ -272,8 +286,8 @@ function stepLeg(w, i, course, dyn, inp, dt) {
   if (leg.st === ST.STANCE) {
     sample(course, dyn, w.t, leg.fx, leg.fz, gS);
     const base = baseSurface(gS.s);
-    if (isDeadly(base)) return burn(w, leg, base === C.S.LAVA ? 'burn' : 'fall');
-    if (base === C.S.SHORE && course.water && waterLevel(course, w.t) - gS.h > 0.9) return burn(w, leg, 'soak');
+    if (isDeadly(base)) return burn(w, leg, base === C.S.LAVA ? 'burn' : 'fall', dyn);
+    if (base === C.S.SHORE && course.water && waterLevel(course, w.t) - gS.h > 0.9) return burn(w, leg, 'soak', dyn);
     leg.surf = gS.s;
     leg.platform = gS.platform;
     leg.fy = gS.h;
@@ -282,7 +296,7 @@ function stepLeg(w, i, course, dyn, inp, dt) {
     else leg.sink = Math.max(0, leg.sink - dt * 0.5);
     leg.reach = Math.max(C.L_MIN + 0.2, w.cfg.reach * (1 - leg.sink));
     if (leg.reach <= C.MUD_POP_REACH) {
-      liftLeg(w, leg, 0.4, 'pop');
+      liftLeg(w, leg, 0.4, 'pop', dyn);
       leg.tx = hipS.x;
       leg.tz = hipS.z;
       return;
@@ -291,7 +305,7 @@ function stepLeg(w, i, course, dyn, inp, dt) {
       leg.springT += dt;
       if (leg.springT >= C.SPRING_DELAY) {
         w.vy += C.SPRING_HOP;
-        liftLeg(w, leg, C.SPRING_FLY, 'spring');
+        liftLeg(w, leg, C.SPRING_FLY, 'spring', dyn);
         leg.tx = leg.fx + cy * 1.2;
         leg.tz = leg.fz + sy * 1.2;
         return;
@@ -303,7 +317,7 @@ function stepLeg(w, i, course, dyn, inp, dt) {
     leg.pushF = leg.inert ? 0 : tf;
     leg.pushR = leg.inert ? 0 : tr;
     if (inp.lift && !leg.inert) {
-      liftLeg(w, leg, 0, 'lift');
+      liftLeg(w, leg, 0, 'lift', dyn);
       leg.tx = dtx;
       leg.tz = dtz;
     }
@@ -585,7 +599,7 @@ function hazardsOnBody(w, course, dyn, dt) {
       if (hz.state !== 2) continue;
       for (let i = 0; i < 4; i++) {
         const leg = w.legs[i];
-        if (leg.st === ST.STANCE && Math.hypot(leg.fx - o.x, leg.fz - o.z) < o.r) burn(w, leg, 'burn');
+        if (leg.st === ST.STANCE && Math.hypot(leg.fx - o.x, leg.fz - o.z) < o.r) burn(w, leg, 'burn', dyn);
       }
       if (Math.hypot(w.x - o.x, w.z - o.z) < o.r + 0.6 && hz.p < 0.1) {
         w.cargo.wF += 1.5;
@@ -597,7 +611,7 @@ function hazardsOnBody(w, course, dyn, dt) {
       for (let i = 0; i < 4; i++) {
         const leg = w.legs[i];
         if (leg.st === ST.STANCE && Math.hypot(leg.fx - o.x, leg.fz - o.z) < o.r) {
-          knock(w, leg, 0, 0, 0, 'geyser');
+          knock(w, leg, 0, 0, 0, 'geyser', dyn);
           leg.ly = leg.fy;
         }
       }
@@ -610,7 +624,7 @@ function hazardsOnBody(w, course, dyn, dt) {
       if (!hz.landed) continue;
       for (let i = 0; i < 4; i++) {
         const leg = w.legs[i];
-        if (leg.st !== ST.STUN && Math.hypot(leg.fx - o.x, leg.fz - o.z) < o.r) burn(w, leg, 'hit');
+        if (leg.st !== ST.STUN && Math.hypot(leg.fx - o.x, leg.fz - o.z) < o.r) burn(w, leg, 'hit', dyn);
       }
       const d = Math.hypot(w.x - o.x, w.z - o.z);
       if (d < o.r + 1.5) {
@@ -638,9 +652,10 @@ function hazardsOnBody(w, course, dyn, dt) {
         if (along < 0 || along > o.len) continue;
         const perp = Math.abs(rx * bz - rz * bx);
         if (perp < 0.55) {
-          knock(w, leg, tx, tz, 1.4, 'bar');
-          w.vx += tx * 1.2;
-          w.vz += tz * 1.2;
+          knock(w, leg, tx, tz, 1.2, 'bar', dyn);
+          leg.forced = 0.35;
+          w.vx += tx * 1.0;
+          w.vz += tz * 1.0;
           nudgeTip(w, tx, tz, 3);
           w.events.push({ type: 'barhit', leg: i, x: leg.fx, z: leg.fz });
         }
@@ -648,31 +663,36 @@ function hazardsOnBody(w, course, dyn, dt) {
     } else if (o.kind === 'gate') {
       gateState(o, w.t, hz);
       if (hz.open) continue;
-      // A closed gate is a wall: the body is eased out of it (never thrown) and feet on the line are knocked clear.
+      // A closed gate is a wall in front of the walker; a gate that closes on it pins the feet under the bars.
       const half = C.CHASSIS_L / 2 + 0.4;
-      if (w.x > o.x - half && w.x < o.x) {
-        w.x = Math.max(o.x - half, w.x - 2.5 * dt);
+      if (w.x > o.x - half && w.x < o.x - half + 0.6) {
+        w.x = o.x - half;
         if (w.vx > 0) w.vx = 0;
-      } else if (w.x >= o.x && w.x < o.x + half) {
-        w.x = Math.min(o.x + half, w.x + 2.5 * dt);
-        if (w.vx < 0) w.vx = 0;
       }
-      for (let i = 0; i < 4; i++) {
-        const leg = w.legs[i];
-        if (leg.st === ST.STANCE && Math.abs(leg.fx - o.x) < 0.5 && leg.hitCd <= 0) knock(w, leg, leg.fx < o.x ? -1 : 1, 0, 1.2, 'gate');
+      if (hz.p < 0.05) {
+        for (let i = 0; i < 4; i++) {
+          const leg = w.legs[i];
+          if (leg.st === ST.STANCE && Math.abs(leg.fx - o.x) < 0.5 && leg.hitCd <= 0) {
+            leg.hitCd = 1.5;
+            burn(w, leg, 'hit', dyn);
+          }
+        }
       }
     } else if (o.kind === 'boulder') {
       boulderState(o, w.t, hz);
       if (!hz.active) continue;
       for (let i = 0; i < 4; i++) {
         const leg = w.legs[i];
-        if (leg.st === ST.STANCE && leg.hitCd <= 0 && Math.hypot(leg.fx - hz.x, leg.fz - hz.z) < o.r + 0.5) knock(w, leg, -1, 0, 1.4, 'boulder');
+        if (leg.st === ST.STANCE && leg.hitCd <= 0 && Math.hypot(leg.fx - hz.x, leg.fz - hz.z) < o.r + 0.3) {
+          knock(w, leg, -1, 0, 1.4, 'boulder', dyn);
+          leg.forced = 0.35;
+        }
       }
       const d = Math.hypot(w.x - hz.x, w.z - hz.z);
-      if (d < o.r + 1.8 && w.boulderCd <= 0) {
-        w.vx -= 3;
-        nudgeTip(w, -1, 0, 10);
-        w.cargo.wF -= 2;
+      if (d < o.r + 1.4 && Math.abs(w.z - hz.z) < o.r + 1.2 && w.boulderCd <= 0) {
+        w.vx -= 2;
+        nudgeTip(w, -1, 0, 6);
+        w.cargo.wF -= 1.5;
         w.boulderCd = 1;
         w.events.push({ type: 'boulderhit', x: hz.x, z: hz.z });
       }
@@ -853,6 +873,7 @@ function tumble(w, course, why) {
     const leg = w.legs[i];
     if (!leg.absent) leg.st = ST.SWING;
     leg.pushF = leg.pushR = 0;
+    leg.slab = -1;
   }
   w.events.push({ type: 'tumble', why, x: w.x, z: w.z });
   return true;
@@ -863,6 +884,7 @@ export function respawn(w, course, dyn) {
   w.tumbling = 0;
   placeAt(w, course, spot, dyn);
   dyn.crumble.fill(-1);
+  dyn.gone.fill(-1);
   w.events.push({ type: 'respawn', x: spot.x, z: spot.z });
   if (w.tumbles >= course.budget && !w.finished) {
     w.over = true;
@@ -890,6 +912,7 @@ export function resetStance(w, course, dyn) {
     leg.platform = gS.platform;
     leg.surf = gS.s;
     leg.forced = 0;
+    leg.slab = baseSurface(gS.s) === C.S.CRUMBLE ? gS.f : -1;
   }
   w.events.push({ type: 'reset' });
   return true;
@@ -924,6 +947,7 @@ export function stepWalker(w, course, dyn, inputs, dt) {
   w.t += dt;
   w.resetCd = Math.max(0, w.resetCd - dt);
   w.boulderCd = Math.max(0, (w.boulderCd ?? 0) - dt);
+  w.gateShove = Math.max(0, (w.gateShove ?? 0) - dt);
   if (w.tumbling > 0) {
     w.tumbling -= dt;
     if (w.tumbling <= 0) respawn(w, course, dyn);
@@ -931,6 +955,15 @@ export function stepWalker(w, course, dyn, inputs, dt) {
   }
   if (w.over || w.finished) return;
   carry(w, course, dyn, dt);
+  // A slab drops under a foot that stays on it too long, and grows back later.
+  for (let i = 0; i < dyn.crumble.length; i++) {
+    if (dyn.crumble[i] >= 0 && w.t - dyn.crumble[i] > C.CRUMBLE_T) {
+      dyn.crumble[i] = -1;
+      dyn.gone[i] = w.t;
+      w.events.push({ type: 'collapse', slab: i });
+    }
+    if (dyn.gone[i] >= 0 && w.t - dyn.gone[i] > C.CRUMBLE_REGROW) dyn.gone[i] = -1;
+  }
   for (let i = 0; i < 4; i++) stepLeg(w, i, course, dyn, inputs[i], dt);
   const n = bodyDynamics(w, course, dyn, dt);
   constraints(w, n);

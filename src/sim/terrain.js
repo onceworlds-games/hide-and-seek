@@ -1,7 +1,7 @@
 // The course is a strip along +x: a height field with a surface id per cell plus a few
 // dynamic features (platforms, crumbling slabs, gates, tides) that depend on time and on
 // what the walker has done. Everything here is plain data and pure functions.
-import { S, CRUMBLE_T, CRUMBLE_REGROW } from './constants.js';
+import { S, CRUMBLE_REGROW } from './constants.js';
 
 export const CELL = 0.5;
 export const HALF_W = 12;
@@ -161,14 +161,11 @@ export function sample(course, dyn, time, x, z, out) {
       }
     }
   }
-  if (s === S.CRUMBLE && f >= 0) {
-    const t0 = dyn.crumble[f];
-    if (t0 >= 0) {
-      const age = time - t0;
-      if (age > CRUMBLE_T && age < CRUMBLE_T + CRUMBLE_REGROW) {
-        s = S.VOID;
-        h = VOID_DEPTH;
-      }
+  if (s === S.CRUMBLE && f >= 0 && f < dyn.gone.length) {
+    const g = dyn.gone[f];
+    if (g >= 0 && time - g < CRUMBLE_REGROW) {
+      s = S.VOID;
+      h = VOID_DEPTH;
     }
   } else if (s === S.SHORE && course.water) {
     if (h < waterLevel(course, time)) s = S.SHORE | 0x80; // wet

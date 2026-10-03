@@ -8,9 +8,9 @@ import { ventState, geyserState, barAngle, rockState, boulderState, gateState } 
 import { pathZ } from './courses.js';
 
 export const SKILLS = [
-  { name: 'novice', react: 0.34, stride: 1.5, speed: 0.6, err: 0.15, foresight: 0, trot: false, think: 0.15, safety: 0.15 },
-  { name: 'average', react: 0.2, stride: 1.85, speed: 0.82, err: 0.05, foresight: 1, trot: false, think: 0.1, safety: 0.25 },
-  { name: 'pro', react: 0.1, stride: 2.15, speed: 1, err: 0, foresight: 2, trot: true, think: 0.1, safety: 0.3 },
+  { name: 'novice', react: 0.34, stride: 1.5, speed: 0.6, err: 0.15, foresight: 0, trot: false, think: 0.15, safety: 0.04 },
+  { name: 'average', react: 0.2, stride: 1.85, speed: 0.82, err: 0.05, foresight: 1, trot: false, think: 0.1, safety: 0.1 },
+  { name: 'pro', react: 0.1, stride: 2.15, speed: 1, err: 0, foresight: 2, trot: true, think: 0.1, safety: 0.14 },
 ];
 
 const gS = { h: 0, s: 0, f: -1, platform: -1, conveyor: 0 };
@@ -36,7 +36,7 @@ export function createBots(skill, rng) {
     wantReset: false,
     intentF: 0,
     intentR: 0,
-    legs: [0, 1, 2, 3].map(() => ({ plan: 'hold', t: 0, tx: 0, tz: 0, sx: 0, sy: 0, brace: false, speedMul: 1 })),
+    legs: [0, 1, 2, 3].map(() => ({ plan: 'hold', t: 0, tx: 0, tz: 0, hover: 0 })),
   };
 }
 
@@ -59,6 +59,7 @@ function computeIntent(team, w, course, humans, autonomous) {
   const ax = w.x + 5;
   let az = pathZ(course, ax);
   if (team.skill.foresight >= 2) az -= Math.max(-1.5, Math.min(1.5, w.windZ * 1.2)); // lean upwind
+  az = steerClear(team, course, w, ax, az);
   let gx = ax - w.x;
   let gz = (az - w.z) * 1.6;
   const gl = Math.hypot(gx, gz) || 1;
@@ -110,6 +111,40 @@ function computeIntent(team, w, course, humans, autonomous) {
   return m;
 }
 
+const dynS = { crumble: new Float32Array(0), gone: new Float32Array(0) };
+/** Shift the aim sideways when the ground ahead at that line is deadly, or a boulder owns the lane. */
+function steerClear(team, course, w, ax, az) {
+  const look = team.skill.foresight >= 1 ? 4 : 2;
+  let bad = false;
+  for (let d = 1; d <= look && !bad; d += 1.5) {
+    sample(course, dynS, w.t, w.x + 2.2 + d, az, gS);
+    if (isDeadly(baseSurface(gS.s))) bad = true;
+  }
+  if (!bad && team.skill.foresight >= 1 && course.boulders.length) {
+    for (let k = 0; k < course.boulders.length && !bad; k++) {
+      const bo = course.boulders[k];
+      if (Math.abs(az - bo.z) > bo.r + 1.6 || w.x < bo.x0 - 6 || w.x > bo.x1) continue;
+      boulderState(bo, w.t, hz);
+      if (hz.active && hz.x > w.x - 3 && hz.x < w.x + 22) bad = true;
+    }
+  }
+  if (!bad) return az;
+  for (let off = 1.5; off <= 7.5; off += 1.5) {
+    for (const side of [1, -1]) {
+      const z = az + side * off;
+      if (Math.abs(z) > 10) continue;
+      let ok = true;
+      for (let d = 1; d <= look && ok; d += 1.5) {
+        sample(course, dynS, w.t, w.x + 2.2 + d, z, gS);
+        if (isDeadly(baseSurface(gS.s))) ok = false;
+      }
+      if (ok && course.boulders.length) for (const bo of course.boulders) if (Math.abs(z - bo.z) <= bo.r + 1.2 && w.x >= bo.x0 - 6 && w.x <= bo.x1) ok = false;
+      if (ok) return z;
+    }
+  }
+  return az;
+}
+
 function targetBad(w, course, dyn, x, z, skill, t, allowMud) {
   sample(course, dyn, t, x, z, gS);
   const b = baseSurface(gS.s);
@@ -119,7 +154,7 @@ function targetBad(w, course, dyn, x, z, skill, t, allowMud) {
   let bad = 0;
   if (b === C.S.CRUMBLE) {
     const t0 = gS.f >= 0 && gS.f < dyn.crumble.length ? dyn.crumble[gS.f] : -1;
-    if (t0 >= 0 && t - t0 > C.CRUMBLE_T * 0.5) bad += 100;
+    if (t0 >= 0) bad += 100; // another foot is on it: a slab carries one foot at a time
     else bad += 0.3;
   }
   if (b === C.S.MUD) bad += allowMud ? 0.8 : 2;
@@ -196,12 +231,38 @@ function pickTarget(team, w, course, dyn, i, out) {
       sample(course, dyn, w.t, px, pz, gS);
       const dy = gS.h - hipS.y;
       if (rad * rad + dy * dy > (leg.reach - 0.25) * (leg.reach - 0.25)) continue;
-      const cost = -rad * Math.cos(ang) + bad + Math.abs(ang) * 0.4;
+      let cost = -rad * Math.cos(ang) + bad + Math.abs(ang) * 0.4;
+      // A foot stays on its own side of the body: crossing the centreline is awkward and shares footing.
+      const side = -(px - hipS.x) * sy + (pz - hipS.z) * cy;
+      if (C.HIPS[i][1] < 0 ? side > 0.6 : side < -0.6) cost += 1.5 + Math.abs(side);
       if (cost < best) {
         best = cost;
         bx = px;
         bz = pz;
         found = true;
+      }
+    }
+  }
+  if (!found) {
+    // Nothing ahead: look all round the hip (a pool, a vent field, a bridge end).
+    for (let a = 0; a < 16 && !found; a++) {
+      const ang = (a / 16) * Math.PI * 2;
+      for (const rad of [stride, stride * 0.75, stride * 0.5, 0.6]) {
+        const px = hipS.x + Math.cos(ang) * rad;
+        const pz = hipS.z + Math.sin(ang) * rad;
+        const bad = targetBad(w, course, dyn, px, pz, skill, w.t, true);
+        if (bad >= 100) continue;
+        sample(course, dyn, w.t, px, pz, gS);
+        const dy = gS.h - hipS.y;
+        if (rad * rad + dy * dy > (leg.reach - 0.25) * (leg.reach - 0.25)) continue;
+        const fwd = (px - hipS.x) * cy + (pz - hipS.z) * sy;
+        const cost = -fwd * 0.5 + bad;
+        if (cost < best) {
+          best = cost;
+          bx = px;
+          bz = pz;
+          found = true;
+        }
       }
     }
   }
@@ -293,11 +354,9 @@ export function gateWait(course, w, t) {
   for (let k = 0; k < course.gates.length; k++) {
     const g = course.gates[k];
     if (g.x < w.x + 2.4 || g.x > w.x + 9) continue;
+    if (g.x > w.x + 6.5) continue;
     gateState(g, t, hz);
-    const timeToCross = (g.x + 2.6 - w.x) / 1.3;
     if (!hz.open) return true;
-    const openLeft = (1 - hz.p) * g.period * g.open;
-    if (openLeft < timeToCross) return true;
   }
   return false;
 }
@@ -392,9 +451,22 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
       inp.x = Math.max(-1, Math.min(1, (-dx * sy + dz * cy) / w.cfg.stickRange));
       const swingT = C.SWING_T * (leg.feet === 'springs' ? C.FEET.springs.swingMult : 1);
       const ready = leg.sw >= swingT && t >= b.t && leg.forced <= 0;
-      const valid = leg.valid;
+      let valid = leg.valid;
+      // A foot with nowhere to go doesn't hang forever: after a while it takes the hip's ground (a burn beats a deadlock).
+      if (ready && !valid) {
+        b.hover += dt;
+        if (b.hover > 1.6) {
+          b.tx = hipS.x;
+          b.tz = hipS.z;
+          inp.x = inp.y = 0;
+          valid = true;
+        }
+      } else b.hover = 0;
       inp.lift = !(ready && valid);
-      if (!inp.lift) b.plan = 'hold';
+      if (!inp.lift) {
+        b.plan = 'hold';
+        b.hover = 0;
+      }
       continue;
     }
     // Stance: push (less when the foot is already behind its hip), maybe brace, maybe want to lift.
@@ -471,7 +543,7 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
       const leg = candLeg[n];
       const diagonal = airLeg >= 0 && airLeg + leg === 3;
       const urgent = candScore[n] >= 50;
-      const airOk = air === 0 || (urgent && air <= 1) || (skill.trot && !onCrumble && air === 1 && diagonal && !(team.helpUntil > t));
+      const airOk = air === 0 || (urgent && air <= 1 && !onCrumble) || (skill.trot && !onCrumble && air === 1 && diagonal && !urgent && !(team.helpUntil > t));
       if (!airOk) continue;
       let safe = true;
       if (candScore[n] >= 50) safe = true; // the ground is about to go: falling is worse than a tip
@@ -479,7 +551,7 @@ export function botInputs(team, w, course, dyn, mask, humans, inputs, dt, autono
         // The body tolerates the COM up to COM_MARGIN outside the polygon before it starts to tip.
         const m = marginWithout(w, leg) + C.COM_MARGIN;
         safe = m > skill.safety - (air === 1 ? 0.1 : 0);
-        if (!safe && w.planted >= 3 && candScore[n] > 3.5) safe = m > 0.05; // a leg in trouble lifts anyway
+        if (!safe && w.planted >= 3 && candScore[n] > 3.5) safe = m > -0.15; // a leg in trouble lifts anyway
       }
       if (!safe) continue;
       liftNow(team, w, course, dyn, leg, inputs, t);

@@ -24,7 +24,7 @@ export function createSim(opts) {
     course,
     cfg,
     w,
-    dyn: { crumble: new Float32Array(Math.max(1, course.stoneCount)).fill(-1) },
+    dyn: { crumble: new Float32Array(Math.max(1, course.stoneCount)).fill(-1), gone: new Float32Array(Math.max(1, course.stoneCount)).fill(-1) },
     owners: (opts.owners ?? ['bot', 'bot', 'bot', 'bot']).slice(0, 4),
     pilot: opts.pilot ?? null,
     pilotLeg: 0,
@@ -164,6 +164,8 @@ export function snapshot(sim) {
     g: [r(w.groove), r(w.grooveBest), r(w.grooveSum), w.steps, r(w.lastPlantT), w.lastPlantLeg, r(w.lastInterval), r(w.grooveStreak)],
     run: [w.finished ? 1 : 0, r(w.finishT), w.over ? 1 : 0, w.overWhy, w.cp, r(w.maxX)],
     crumble: Array.from(sim.dyn.crumble, (v) => (v < 0 ? -1 : r(v))),
+    gone: Array.from(sim.dyn.gone, (v) => (v < 0 ? -1 : r(v))),
+    slabs: w.legs.map((l) => l.slab),
     stats: [sim.stats.burns, sim.stats.mudPlants, sim.stats.braces, sim.stats.snaps],
   };
 }
@@ -251,6 +253,10 @@ export function restore(sim, s) {
   if (Array.isArray(s.crumble)) {
     for (let i = 0; i < sim.dyn.crumble.length; i++) sim.dyn.crumble[i] = i < s.crumble.length ? clamp(n(s.crumble[i], -1), -1, 36000) : -1;
   }
+  if (Array.isArray(s.gone)) {
+    for (let i = 0; i < sim.dyn.gone.length; i++) sim.dyn.gone[i] = i < s.gone.length ? clamp(n(s.gone[i], -1), -1, 36000) : -1;
+  }
+  if (Array.isArray(s.slabs)) for (let i = 0; i < 4; i++) w.legs[i].slab = Number.isInteger(s.slabs[i]) && s.slabs[i] >= -1 && s.slabs[i] < sim.dyn.crumble.length ? s.slabs[i] : -1;
   if (Array.isArray(s.stats)) {
     sim.stats.burns = clamp(Math.round(n(s.stats[0])), 0, 1e6);
     sim.stats.mudPlants = clamp(Math.round(n(s.stats[1])), 0, 1e6);

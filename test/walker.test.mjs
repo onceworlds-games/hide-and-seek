@@ -138,7 +138,7 @@ test('three legs lifted with the body unsupported tumbles, then respawns at a sa
   assert.ok(finiteWalker(w));
 });
 
-test('a crumbling slab collapses after the first plant and a foot still on it falls', () => {
+test('a crumbling slab drops under a foot that stays on it, and heals when the foot leaves', () => {
   const course = buildCourse({ kind: 'expedition', biome: 3, index: 0 }); // Loose Footing: crumble bridge
   const seg = course.segments.find((s) => s.tpl === 'crumble');
   const sim = createSim({ course, owners: HUMANS });
@@ -151,17 +151,27 @@ test('a crumbling slab collapses after the first plant and a foot still on it fa
     w.legs[i].fz = i % 2 ? 1.2 : -1.2;
   }
   for (let i = 0; i < 4; i++) setHumanInput(sim, i, { x: 0, y: 0, lift: false, brace: false });
-  // Replant one foot so the slab timer starts.
+  // Replant one foot: its slab timer starts.
   setHumanInput(sim, 0, { x: 0, y: 0, lift: true, brace: false });
   run(sim, 0.4);
   setHumanInput(sim, 0, { x: 0, y: 0, lift: false, brace: false });
   run(sim, 0.1);
   assert.ok(drainEvents(sim).some((e) => e.type === 'crack'));
+  const slab = w.legs[0].slab;
+  assert.ok(slab >= 0);
+  // Lift it again before the drop: the slab heals.
+  run(sim, 1);
+  setHumanInput(sim, 0, { x: 0, y: 0, lift: true, brace: false });
+  run(sim, 0.2);
+  assert.equal(sim.dyn.crumble[slab], -1, 'healed');
+  setHumanInput(sim, 0, { x: 0, y: 0, lift: false, brace: false });
+  run(sim, 0.1);
   let fell = false;
   run(sim, 3.5, () => {
     if (drainEvents(sim).some((e) => e.type === 'fall')) fell = true;
   });
-  assert.ok(fell, 'the slab gave way');
+  assert.ok(fell, 'the slab gave way under a foot that stayed');
+  assert.ok(sim.dyn.gone[slab] >= 0, 'the slab is gone');
   assert.ok(finiteWalker(w));
 });
 
