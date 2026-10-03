@@ -9,6 +9,7 @@ const SCALE = [0, 2, 4, 7, 9, 12, 14, 16]; // pentatonic-ish, cheerful
 export function createAudio() {
   let ctx = null;
   let master = null;
+  let steps = null; // footsteps: the most frequent sound, kept under the music
   let limiter = null;
   let music = null;
   let servo = null;
@@ -31,6 +32,9 @@ export function createAudio() {
       master = ctx.createGain();
       master.gain.value = 0.8;
       master.connect(limiter);
+      steps = ctx.createGain();
+      steps.gain.value = 0.5;
+      steps.connect(master);
       limiter.connect(ctx.destination);
       return true;
     } catch {
@@ -102,39 +106,39 @@ export function createAudio() {
       const t = now();
       const v = vary(surface);
       if (wet || surface === 'shore') {
-        noise(t, 0.25, 0.25, 1800 * v, 0.8);
-        osc('sine', 300 * v, t, 0.12, 0.2, master, 120);
+        noise(t, 0.25, 0.25, 1800 * v, 0.8, 'bandpass', steps);
+        osc('sine', 300 * v, t, 0.12, 0.2, steps, 120);
         return;
       }
       switch (surface) {
         case 'ice':
-          osc('sine', 1900 * v, t, 0.09, 0.14, master, 2600 * v);
-          osc('triangle', 3200 * v, t + 0.03, 0.12, 0.08);
-          noise(t, 0.08, 0.12, 5000, 2, 'highpass');
+          osc('sine', 1900 * v, t, 0.09, 0.14, steps, 2600 * v);
+          osc('triangle', 3200 * v, t + 0.03, 0.12, 0.08, steps);
+          noise(t, 0.08, 0.12, 5000, 2, 'highpass', steps);
           break;
         case 'mud':
-          noise(t, 0.28, 0.35, 420 * v, 1.2, 'lowpass');
-          osc('sine', 160 * v, t, 0.2, 0.3, master, 70);
+          noise(t, 0.28, 0.35, 420 * v, 1.2, 'lowpass', steps);
+          osc('sine', 160 * v, t, 0.2, 0.3, steps, 70);
           break;
         case 'metal':
         case 'grate':
         case 'platform':
         case 'conveyor':
-          osc('triangle', 820 * v, t, 0.35, 0.2, master, 780 * v);
-          osc('sine', 1230 * v, t, 0.25, 0.1);
-          noise(t, 0.05, 0.2, 3000, 1);
+          osc('triangle', 820 * v, t, 0.35, 0.2, steps, 780 * v);
+          osc('sine', 1230 * v, t, 0.25, 0.1, steps);
+          noise(t, 0.05, 0.2, 3000, 1, 'bandpass', steps);
           break;
         case 'stone':
         case 'crumble':
-          osc('sine', 140 * v, t, 0.14, 0.4, master, 60);
-          noise(t, 0.12, 0.2, 900, 1);
+          osc('sine', 140 * v, t, 0.14, 0.4, steps, 60);
+          noise(t, 0.12, 0.2, 900, 1, 'bandpass', steps);
           break;
         case 'spring':
-          osc('sine', 300 * v, t, 0.25, 0.3, master, 900 * v);
+          osc('sine', 300 * v, t, 0.25, 0.3, steps, 900 * v);
           break;
         default:
-          osc('sine', 120 * v, t, 0.16, 0.45, master, 55);
-          noise(t, 0.1, 0.18, 700, 0.8, 'lowpass');
+          osc('sine', 120 * v, t, 0.16, 0.45, steps, 55);
+          noise(t, 0.1, 0.18, 700, 0.8, 'lowpass', steps);
       }
     },
     lift() {
@@ -159,8 +163,8 @@ export function createAudio() {
     },
     hit() {
       const t = now();
-      osc('sine', 90, t, 0.3, 0.5, master, 40);
-      noise(t, 0.2, 0.3, 500, 1, 'lowpass');
+      osc('sine', 90, t, 0.3, 0.36, master, 40);
+      noise(t, 0.2, 0.22, 500, 1, 'lowpass');
     },
     spring() {
       const t = now();
@@ -251,8 +255,8 @@ export function createAudio() {
     },
     rock() {
       const t = now();
-      osc('sine', 70, t, 0.4, 0.6, master, 35);
-      noise(t, 0.3, 0.35, 400, 1, 'lowpass');
+      osc('sine', 70, t, 0.4, 0.42, master, 35);
+      noise(t, 0.3, 0.25, 400, 1, 'lowpass');
     },
     bar() {
       const t = now();
@@ -305,7 +309,7 @@ export function createAudio() {
     return {
       set(level) {
         const l = Math.max(0, Math.min(1, level));
-        g.gain.setTargetAtTime(l * 0.07, ctx.currentTime, 0.05);
+        g.gain.setTargetAtTime(l * 0.05, ctx.currentTime, 0.05);
         o.frequency.setTargetAtTime(70 + l * 260, ctx.currentTime, 0.08);
       },
       wind(level) {
@@ -358,7 +362,7 @@ export function createAudio() {
         if (state.playing) return;
         state.playing = true;
         state.nextT = ctx.currentTime + 0.1;
-        bus.gain.setTargetAtTime(0.5, ctx.currentTime, 0.5);
+        bus.gain.setTargetAtTime(0.7, ctx.currentTime, 0.5);
         timer = setInterval(schedule, 100);
       },
       stop() {
@@ -371,7 +375,7 @@ export function createAudio() {
         state.groove = Math.max(0, Math.min(100, g));
       },
       setLevel(l) {
-        if (state.playing) bus.gain.setTargetAtTime(0.5 * l, ctx.currentTime, 0.4);
+        if (state.playing) bus.gain.setTargetAtTime(0.7 * l, ctx.currentTime, 0.4);
       },
     };
   }
