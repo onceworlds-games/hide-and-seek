@@ -36,6 +36,7 @@ export function createSim(opts) {
     mask: [true, true, true, true],
     lastInputT: [0, 0, 0, 0], // sim time a human's input last changed, per leg
     auto: [false, false, false, false], // a human leg nobody is driving: the bots step for it
+    pilotAuto: false, // Pilot mode with the pilot gone quiet: the bots walk the course's path on their own
     events: [],
     tick: 0,
     stats: { burns: 0, mudPlants: 0, braces: 0, snaps: 0 },
@@ -48,9 +49,15 @@ export function defaultCfg() {
   return { reach: 3.4, stickRange: 2.2, gain: 1, tipMult: 1, cargoDamp: 1, gripMult: 1, windMult: 1, feet: ['std', 'std', 'std', 'std'], missing: -1, inert: [false, false, false, false], giant: false, swap: false, mechanic: 0 };
 }
 
-/** A human's input for a leg (validated). In Pilot mode the pilot's stick is the walker's intent. */
+/** A human leg nobody has touched for this long (sim seconds) is stepped by the bots until they touch it again. */
 export const IDLE_LEG_S = 8;
+/**
+ * The same for a pilot, whose whole machine stands still without them: after this long with the controls untouched the bots walk
+ * the course's path (what they do when no human drives, and what a steady pilot's stick would ask for) until the pilot steers again.
+ */
+export const IDLE_PILOT_S = 5;
 
+/** A human's input for a leg (validated). In Pilot mode the pilot's stick is the walker's intent. */
 export function setHumanInput(sim, leg, raw) {
   if (leg < 0 || leg > 3) return;
   const h = sim.humans[leg] ?? (sim.humans[leg] = blankInput());
@@ -108,7 +115,9 @@ export function stepSim(sim, dt = DT) {
     for (let i = 0; i < 4; i++) sim.mask[i] = !(sim.taken && i === leg);
     pilotStick[0] = h ? { x: swap ? -h.x : h.x, y: swap ? -h.y : h.y } : null;
     pilotStick[1] = pilotStick[2] = pilotStick[3] = null;
-    botInputs(sim.bots, w, course, dyn, sim.mask, pilotStick, inputs, dt, sim.autonomous);
+    // A pilot who has gone quiet doesn't leave the machine standing at the gate: the bots walk the path until they steer again.
+    sim.pilotAuto = w.t - sim.lastInputT[0] > IDLE_PILOT_S;
+    botInputs(sim.bots, w, course, dyn, sim.mask, pilotStick, inputs, dt, sim.autonomous || sim.pilotAuto);
     if (sim.taken && h) {
       const inp = inputs[leg];
       inp.x = swap ? -h.x : h.x;
@@ -117,6 +126,7 @@ export function stepSim(sim, dt = DT) {
       inp.brace = h.brace;
     } else if (h && h.brace) inputs[leg].brace = true;
   } else {
+    sim.pilotAuto = false;
     let anyHuman = false;
     for (let i = 0; i < 4; i++) {
       // A leg whose player has gone quiet is stepped by the bots until they touch the controls again.
@@ -275,5 +285,7 @@ export function restore(sim, s) {
     sim.stats.braces = clamp(Math.round(n(s.stats[2])), 0, 1e6);
     sim.stats.snaps = clamp(Math.round(n(s.stats[3])), 0, 1e6);
   }
+  // Whoever carries on from here starts with a fresh quiet clock: the idle rules (a quiet leg, a quiet pilot) count from now.
+  sim.lastInputT.fill(w.t);
   return true;
 }

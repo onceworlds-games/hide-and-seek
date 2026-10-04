@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createSim, stepSim, setHumanInput, snapshot, restore, drainEvents, requestReset } from '../src/sim/sim.js';
+import { createSim, stepSim, setHumanInput, snapshot, restore, drainEvents, requestReset, IDLE_PILOT_S } from '../src/sim/sim.js';
 import { buildCourse } from '../src/sim/courses.js';
 import { ST } from '../src/sim/walker.js';
 import { fillRect, fillDisc } from '../src/sim/terrain.js';
@@ -308,6 +308,42 @@ test('pilot mode: the stick steers the bots, holding Lift takes the highlighted 
   run(sim, 4);
   assert.ok(finiteWalker(w));
   assert.equal(w.tumbles, 0);
+});
+
+test('pilot mode: a pilot who stands by gets the bots walking the course, and steers again on the first touch', () => {
+  const sim = createSim({ course: flat(), owners: ['bot', 'bot', 'bot', 'bot'], pilot: 'me', botSkill: 2, seed: 'pilot-idle' });
+  const w = sim.w;
+  const start = w.x;
+  setHumanInput(sim, 0, { x: 0, y: 0, lift: false, brace: false });
+  run(sim, 4);
+  assert.equal(sim.pilotAuto, false, 'a pilot may stop and think for a few seconds');
+  assert.ok(w.x - start < 1.5, `and the machine waits at the gate meanwhile: ${w.x - start}`);
+  run(sim, 2);
+  assert.equal(sim.pilotAuto, true, 'quiet past IDLE_PILOT_S: the bots set off');
+  const x0 = w.x;
+  run(sim, 9);
+  assert.ok(w.x > x0 + 4, `they walk the course on their own: ${w.x - x0}`);
+  assert.ok(finiteWalker(w));
+  // the first touch is the pilot's again, and a held stick keeps it
+  const hold = () => setHumanInput(sim, 0, { x: 0, y: 1, lift: false, brace: false });
+  hold();
+  stepSim(sim);
+  assert.equal(sim.pilotAuto, false, 'the pilot is back on the stick');
+  run(sim, 7, hold);
+  assert.equal(sim.pilotAuto, false, 'a stick held steady is not standing by');
+  // taking a foot is steering too: the bots don't also walk on while the pilot has it up
+  setHumanInput(sim, 0, { x: 0, y: 0, lift: true, brace: false });
+  run(sim, 6, () => setHumanInput(sim, 0, { x: 0, y: 0, lift: true, brace: false }));
+  assert.equal(sim.pilotAuto, false, 'a held lift is not standing by either');
+  // not in Pilot mode, and never from a stale clock: a new host adopting the walker gives everyone a fresh few seconds
+  const snap = snapshot(sim);
+  const b = createSim({ course: flat(), owners: ['bot', 'bot', 'bot', 'bot'], pilot: 'me', botSkill: 2, seed: 'pilot-idle' });
+  assert.ok(restore(b, snap));
+  stepSim(b);
+  assert.equal(b.pilotAuto, false, 'a new host starts with a fresh quiet clock');
+  const plain = createSim({ course: flat(), owners: HUMANS });
+  run(plain, IDLE_PILOT_S + 2);
+  assert.equal(plain.pilotAuto, false, 'with a team of players there is no pilot to wait for');
 });
 
 test('a human leg nobody drives goes to the bots after a while, and comes back on the first touch', () => {

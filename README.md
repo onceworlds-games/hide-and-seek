@@ -8,7 +8,7 @@ Play it at [onceworlds.com/play/legwork](https://onceworlds.com/play/legwork).
 
 A planted foot pushes the body where you aim; a foot trailing far behind its hip has no push left, so step it forward. A lifted foot flies where you aim and lands when you let go. The polygon between the planted feet is what holds you up: keep the weight dot inside it, or the machine starts to go over (slowly enough to catch it by putting a foot down). The stance gauge in the corner shows the machine from above, and a light on your foot says whether it can come up. Step on the beat with the others and the groove meter climbs (and the score and the music with it). Brace doubles a foot's grip for a second. Signals are quick calls the whole team hears. Each expedition allows six tumbles (the last, three).
 
-Alone you are the pilot: the stick steers and three bot legs step for you. Hold Lift to take the highlighted foot yourself (Tab or the Leg button picks another), release to give it back. The Mechanic in the workshop makes the bots steadier.
+Alone you are the pilot: the stick steers and three bot legs step for you. Hold Lift to take the highlighted foot yourself (Tab or the Leg button picks another), release to give it back. Leave the controls alone for five seconds and the bots walk the course on their own until you steer again. The Mechanic in the workshop makes the bots steadier.
 
 ### Keyboard
 

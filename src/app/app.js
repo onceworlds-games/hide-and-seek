@@ -600,6 +600,8 @@ function coach(app, w, touch, dt) {
   } else if (lift) c.stepped = true;
   if (app.hud.st.hintT > 0) return;
   if (app.pilot) {
+    // nobody is steering, so the bots have set off along the course (sim.pilotAuto): say how to take it back
+    if (app.run.sim.pilotAuto) hintOnce(app, 'auto', touch ? 'LEGS WALK ON · STICK STEERS' : 'LEGS WALK ON · W A S D STEER');
     if (c.t > 10 && !c.took) hintOnce(app, 'take', touch ? 'HOLD TAKE FOOT' : 'HOLD SPACE · TAKE A FOOT');
     if (c.plantT >= 0 && c.t - c.plantT > 4) hintOnce(app, 'cycle', touch ? 'LEG PICKS ANOTHER FOOT' : 'TAB PICKS ANOTHER FOOT');
   } else if (app.myLeg >= 0 && app.myLeg < 4) {
