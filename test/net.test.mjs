@@ -10,18 +10,18 @@ function record() {
   const G = engine.createMatch({ mid: 'm9', by: 'h1', roster, settings: { rounds: 3, map: 'mansion' }, seed: 4 });
   const host = new HostGame(G, 1);
   host.advance(0);
+  assert.deepEqual(G.seek, ['bot3', 'bot4'], "round 1: the bots at the end of the roster seek, the humans hide");
   host.setHuman('h1', 20, 12, 0);
-  host.setHuman('h2', 21, 12, 0);
   const s = host.house.spots[1];
-  // make some history: a bot hides, a seeker finds it
-  const bot = host.bots.get('bot3');
-  bot.x = s.ax;
-  bot.y = s.ay;
-  assert.ok(engine.hide(G, 'bot3', 1, host.ectx));
+  // make some history: a human hides, a seeker finds them
+  host.setHuman('h2', s.ax, s.ay, 0);
+  assert.ok(engine.hide(G, 'h2', 1, host.ectx));
   host.advance(26000);
-  host.setHuman('h1', s.ax, s.ay, 0);
+  const seeker = host.bots.get('bot3');
+  seeker.x = s.ax;
+  seeker.y = s.ay;
   host.now = 30000;
-  assert.equal(engine.search(G, 'h1', 1, 30000, host.ectx), 'found');
+  assert.equal(engine.search(G, 'bot3', 1, 30000, host.ectx), 'found');
   return G;
 }
 
@@ -87,7 +87,7 @@ test('garbage from another player never gets through or throws', () => {
   assert.equal(weird.n, 0);
   assert.equal(weird.total, 20);
   assert.equal(weird.until, 0);
-  assert.deepEqual(weird.seek, ['h1']);
+  assert.deepEqual(weird.seek, ['h1'], 'only ids that are in the roster');
   assert.equal(Object.keys(weird.found).length, 1);
   assert.equal(weird.found.h1, 1e8);
   assert.ok(weird.scores.h1 === 0 && weird.scores.h2 === 0, 'impossible numbers are dropped');

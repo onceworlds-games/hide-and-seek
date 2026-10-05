@@ -103,7 +103,9 @@ export function startRound(G, base) {
   G.n += 1;
   G.rid = `${G.mid}.${G.n}`;
   const order = G.roster.map((r) => r.id);
-  G.seek = seekersForRound(order, seekerCount(order.length), G.n - 1);
+  // Round 1's seekers are the end of the roster (the bots, when there are any), so everyone's first round is running to hide,
+  // not a dark count; the humans seek from round 2.
+  G.seek = seekersForRound(order, seekerCount(order.length), G.n - 2);
   G.found = {};
   G.fd = {};
   G.spots = {};

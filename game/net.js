@@ -295,7 +295,8 @@ export class Net {
         raw.by = room.me.id;
         engine.touch(raw);
         this.host = new HostGame(raw, ++this.salt);
-        this.host.restore(parseB(room.state.b, raw.roster.length));
+        const snap = parseB(room.state.b, raw.roster.length);
+        if (snap) this.host.restore({ rid: snap.rid, t: snap.t, p: snap.rows.map((r) => [r.i, r.x, r.y, r.vx, r.vy, r.a]) });
       } else {
         const humans = m.participants.map((id) => ({ id, name: room.players.get(id)?.name }));
         const roster = buildRoster(humans, m.seed);
@@ -382,6 +383,9 @@ export class Net {
     void at;
     if (!this.authority || !d || typeof d !== 'object' || typeof d.rid !== 'string' || !from || typeof from.id !== 'string') return;
     const host = this.host;
+    // Judge the request by where the sender is right now (the host's ticker samples presence only every 100 ms).
+    const pr = this.room.players.get(from.id)?.presence;
+    if (pr && typeof pr === 'object') host.setHuman(from.id, Number(pr.x), Number(pr.y), Number(pr.a), Number(pr.vx) || 0, Number(pr.vy) || 0);
     if (d.t === 'hide' && Number.isInteger(d.spot)) host.onHide(from.id, d.rid, d.spot);
     else if (d.t === 'unhide') host.onUnhide(from.id, d.rid);
     else if (d.t === 'search' && Number.isInteger(d.spot)) host.onSearch(from.id, d.rid, d.spot);

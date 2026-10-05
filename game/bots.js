@@ -90,7 +90,9 @@ function follow(bot, ctx, dt) {
   let wp = bot.path[bot.pi];
   while (wp) {
     const last = bot.pi === bot.path.length - 1;
-    if (Math.hypot(wp.x - bot.x, wp.y - bot.y) < (last ? 0.25 : 0.4)) {
+    // Arriving needn't be exact: two bots bound for the same anchor push each other off it (they're a character wide apart).
+    const reach = last ? (bot.goal && bot.goal.kind === 'spot' ? 0.5 : 0.8) : 0.4;
+    if (Math.hypot(wp.x - bot.x, wp.y - bot.y) < reach) {
       bot.pi++;
       wp = bot.path[bot.pi];
     } else break;

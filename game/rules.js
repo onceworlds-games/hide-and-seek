@@ -128,12 +128,12 @@ export function roundsFor(setting, n) {
   return setting === 5 ? 5 : 3;
 }
 
-/** Round r (0-based): the seekers go through the roster in turn, so nobody seeks twice before everyone has. */
+/** Turn r: the seekers go through the roster in turn, so nobody seeks twice before everyone has (r may be negative: it wraps). */
 export function seekersForRound(order, k, r) {
   const n = order.length;
   const out = [];
   for (let j = 0; j < k && out.length < n - 1; j++) {
-    const id = order[(r * k + j) % n];
+    const id = order[(((r * k + j) % n) + n) % n];
     if (!out.includes(id)) out.push(id);
   }
   return out;

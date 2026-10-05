@@ -92,7 +92,7 @@ test('a whole match of only bots ends, ranks everyone, and nothing goes wrong (2
   console.log(`# 20 matches: finds in last rounds ${totalFinds}, rounds ended early ${early}, on the clock ${timed}, bot unstick events ${totalUnstuck}`);
   assert.ok(early + timed >= 20 * 3);
   assert.ok(early > 0 && timed > 0, 'both kinds of round end happen');
-  assert.ok(totalUnstuck <= 20, `bots got stuck ${totalUnstuck} times`);
+  assert.equal(totalUnstuck, 0, `bots got stuck ${totalUnstuck} times`);
 });
 
 test('bots hide in spots during the hide phase and seekers really find them', () => {
@@ -128,7 +128,8 @@ test('a human who leaves is taken over by a bot and the match goes on', () => {
   const host = new HostGame(G, 1);
   let now = 0;
   const house = getHouse('cozy');
-  for (let step = 0; step < 60 * 30; step++) {
+  // round 1 the humans hide, round 2 they seek: leave once round 2's seek has begun
+  for (let step = 0; step < 60 * 400 && !(G.n === 2 && G.phase === 'seek'); step++) {
     now += DT * 1000;
     if (step % 6 === 0) host.advance(now);
     host.setHuman('h1', 10, 10, 0);
@@ -136,6 +137,7 @@ test('a human who leaves is taken over by a bot and the match goes on', () => {
     host.step(DT, now);
   }
   assert.equal(G.phase, 'seek');
+  assert.deepEqual(G.seek, ['h1', 'h2']);
   assert.ok(host.convertToBot('h2'));
   assert.ok(!host.convertToBot('h2'), 'only once');
   assert.ok(!host.convertToBot('nobody'));
@@ -162,24 +164,30 @@ test('human requests are checked by the host: round id, role, range', () => {
   const host = new HostGame(G, 1);
   const house = getHouse('cozy');
   host.advance(0);
-  // round 1: h1 and h2 seek, h3 hides
+  // round 1: the bots at the end of the roster seek, all three humans hide
+  assert.deepEqual(G.seek, ['bot2', 'bot3']);
   const s = house.spots[1];
   host.setHuman('h3', s.ax, s.ay, 0);
   assert.equal(host.onHide('h3', 'req.9', 1), false, 'wrong round');
-  assert.equal(host.onHide('h1', G.rid, 1), false, 'a seeker');
-  assert.equal(host.onHide('bot1', G.rid, 1), false, 'bots are the host\'s business, not a message away');
+  assert.equal(host.onHide('bot1', G.rid, 1), false, "bots are the host's business, not a message away");
+  assert.equal(host.onHide('bot2', G.rid, 1), false);
   assert.equal(host.onHide('h3', G.rid, 1), true);
   assert.equal(G.spots[1], 'h3');
   assert.equal(host.onUnhide('h3', G.rid), true);
   assert.equal(host.onUnhide('h3', G.rid), false);
   assert.equal(host.onHide('h3', G.rid, 1), true);
-  host.advance(20000);
+  // on to round 2, where h1 and h2 seek and h3 hides
+  for (let t = 0; t < 400000 && !(G.n === 2 && G.phase === 'seek'); t += 500) host.advance(t);
+  assert.deepEqual(G.seek, ['h1', 'h2']);
   assert.equal(G.phase, 'seek');
+  host.setHuman('h3', s.ax, s.ay, 0);
+  assert.equal(host.onHide('h3', G.rid, 1), true);
+  assert.equal(host.onHide('h1', G.rid, 1), false, 'a seeker cannot hide');
   host.setHuman('h1', s.ax, s.ay, 0);
-  host.now = 30000;
+  host.now = G.seekAt + 10000;
+  assert.equal(host.onSearch('h1', 'old.round', 1), false);
   assert.equal(host.onSearch('h1', G.rid, 1), 'found');
   assert.equal(roleOf(G, 'h3'), 'found');
-  assert.equal(host.onSearch('h1', 'old.round', 1), false);
   host.setHuman('h2', 5, 5, 0);
   host.setHuman('h3', 5.5, 5, 0);
   assert.equal(host.onTag('h2', G.rid, 'h3'), false, 'h3 is a seeker now');

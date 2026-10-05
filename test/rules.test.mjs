@@ -73,23 +73,28 @@ test('rounds: 3, 5 or one per player', () => {
 });
 
 test('everyone seeks once before anyone seeks twice', () => {
+  // the engine's round r is turn r - 2, so the first round is turn -1 (the end of the roster)
   for (const n of [2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const order = Array.from({ length: n }, (_, i) => `p${i}`);
     const k = seekerCount(n);
     const turns = Math.ceil(n / k);
     const counts = Object.fromEntries(order.map((id) => [id, 0]));
-    for (let r = 0; r < turns; r++) {
-      const s = seekersForRound(order, k, r);
+    for (let round = 1; round <= turns; round++) {
+      const s = seekersForRound(order, k, round - 2);
       assert.equal(new Set(s).size, s.length);
       assert.ok(s.length >= 1 && s.length < n, 'at least one hider');
       for (const id of s) counts[id]++;
-      if (r < turns - 1 || n % k === 0) assert.ok(s.every((id) => counts[id] === 1), `n=${n} round ${r}: someone sought twice too early`);
+      if (round < turns || n % k === 0) assert.ok(s.every((id) => counts[id] === 1), `n=${n} round ${round}: someone sought twice too early`);
     }
     assert.ok(order.every((id) => counts[id] >= 1), `n=${n}: everyone sought within ${turns} rounds`);
   }
-  // humans first: the first seeker is the first of the roster
+  // round 1 (turn -1) is the end of the roster, round 2 (turn 0) its start: with bots at the end, a human's first round is hiding
   const roster = buildRoster([{ id: 'h', name: 'H' }], 1);
-  assert.equal(seekersForRound(roster.map((r) => r.id), 2, 0)[0], 'h');
+  const ids = roster.map((r) => r.id);
+  assert.deepEqual(seekersForRound(ids, 2, -1), ['bot4', 'bot5']);
+  assert.ok(!seekersForRound(ids, 2, -1).includes('h'));
+  assert.deepEqual(seekersForRound(ids, 2, 0), ['h', 'bot1']);
+  assert.deepEqual(seekersForRound(ids, 2, -4), seekersForRound(ids, 2, -1), 'it wraps both ways');
 });
 
 test('hiders earn 2 for every 15 seconds they stay unfound, finders earn 3', () => {

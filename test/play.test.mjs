@@ -184,7 +184,7 @@ test('the host hands over mid-round and the match carries on without a reset', (
   assert.equal(pb.net.host.G.by, 'b');
   assert.equal(pb.net.g.phase, 'seek', 'still the same phase');
   const after = pb.net.host.snapshot(A.matchNow());
-  const near = after.p.filter((row, i) => Math.hypot(row[1] - botBefore.p[i][1], row[2] - botBefore.p[i][2]) < 6);
+  const near = after.p.filter((row, i) => Math.hypot(row[1] - botBefore.p[i][1], row[2] - botBefore.p[i][2]) < 3.5);
   assert.equal(near.length, after.p.length, 'the bots carried on from where they were');
   // play out the match with B as the host
   let guard = 0;
@@ -197,7 +197,20 @@ test('the host hands over mid-round and the match carries on without a reset', (
   assert.deepEqual(pb.ctx.__info.bad, []);
 });
 
-test('a page that reloads in the middle of a round comes back to the same place', () => {
+/** A fresh page (a reload) on the same room: new Net, new Play. */
+function reloadPage(T, room, ow, ctx) {
+  const net = new Net(room, { now: () => T.clock.now });
+  const play = new Play({ ow, room, net, audio: new AudioSys(), fx: new Fx(), input: fakeInput(), avatars: { get: () => null } });
+  play.screen = 'play';
+  for (let i = 0; i < 120; i++) {
+    T.clock.advance(1000 / 60);
+    play.update(1 / 60);
+    if (i % 6 === 0) play.draw(ctx, 844, 390, 2, 0.1);
+  }
+  return { net, play };
+}
+
+test('a hider who reloads while hidden comes back hidden in the same spot', () => {
   const T = makeTwoPages();
   run(T, 0.5);
   startMatch(T);
@@ -205,32 +218,37 @@ test('a page that reloads in the middle of a round comes back to the same place'
   run(T, 8, { drawEvery: 30 });
   const g = pb.net.g;
   assert.equal(g.phase, 'hide');
-  // B hides, then reloads
+  assert.equal(roleOf(g, 'b'), 'hider', "round 1: the humans hide");
+  // B runs up to a spot and hides
   const spot = pb.play.cx.house.spots[3];
   pb.play.me.x = spot.ax;
   pb.play.me.y = spot.ay;
+  run(T, 0.1, { drawEvery: 30 });
   pb.input.press();
   run(T, 1, { drawEvery: 30 });
-  const hid = pb.play.me.hid;
-  if (roleOf(g, 'b') === 'hider') assert.equal(hid, 3);
-  const before = { x: pb.play.me.x, y: pb.play.me.y };
-  B.me.presence = { x: before.x, y: before.y, vx: 0, vy: 0, a: 0, h: hid };
-  // a new page: new Net, new Play on the same room
-  const net = new Net(B, { now: () => T.clock.now });
-  const play = new Play({ ow: pb.ow, room: B, net, audio: new AudioSys(), fx: new Fx(), input: fakeInput(), avatars: { get: () => null } });
-  play.screen = 'play';
-  for (let i = 0; i < 120; i++) {
-    T.clock.advance(1000 / 60);
-    play.update(1 / 60);
-    if (i % 6 === 0) play.draw(pb.ctx, 844, 390, 2, 0.1);
-  }
+  assert.equal(pb.play.me.hid, 3);
+  assert.equal(pb.net.g.spots[3], 'b', 'the host gave it to them');
+  const { net, play } = reloadPage(T, B, pb.ow, pb.ctx);
   assert.ok(net.g && net.g.rid === g.rid);
-  if (roleOf(g, 'b') === 'hider') {
-    assert.equal(play.me.hid, 3, 'the record says I am hidden, so I am');
-  } else {
-    assert.ok(Math.hypot(play.me.x - before.x, play.me.y - before.y) < 2.5, 'a seeker is where they were (or at the start of the round)');
-  }
+  assert.equal(play.me.hid, 3, 'the record says I am hidden, so I am');
+  assert.ok(Math.hypot(play.me.x - spot.cx, play.me.y - spot.cy) < 0.01, 'in the spot');
   assert.ok(Number.isFinite(play.me.x));
+  assert.deepEqual(pb.ctx.__info.bad, []);
+});
+
+test('a seeker who reloads in the middle of the seek carries on from where they were', () => {
+  const T = makeTwoPages();
+  run(T, 0.5);
+  startMatch(T);
+  const { B, pb } = T;
+  const g = runUntil(T, 2, 'seek');
+  assert.equal(roleOf(g, 'b'), 'seeker', 'round 2: the humans seek');
+  run(T, 4, { drawEvery: 30 });
+  const before = { x: pb.play.me.x, y: pb.play.me.y };
+  B.me.presence = { x: before.x, y: before.y, vx: 0, vy: 0, a: 1, h: -1 };
+  const { net, play } = reloadPage(T, B, pb.ow, pb.ctx);
+  assert.ok(net.g && net.g.rid === g.rid);
+  assert.ok(Math.hypot(play.me.x - before.x, play.me.y - before.y) < 0.5, 'where the room last saw them');
   assert.deepEqual(pb.ctx.__info.bad, []);
 });
 
@@ -267,8 +285,8 @@ test('seekers find hiders by pressing the button next to a spot: the host page d
   run(T, 0.5);
   startMatch(T);
   const { pa, pb } = T;
-  // round 1: both humans seek. Wait until at least two bots are hidden.
-  let g = runUntil(T, 1, 'seek');
+  // round 2: both humans seek. Wait until at least two bots are hidden.
+  let g = runUntil(T, 2, 'seek');
   for (let i = 0; i < 60 && Object.keys(pa.net.g.spots).length < 2; i++) run(T, 0.2, { drawEvery: 60 });
   g = pa.net.g;
   const spots = Object.keys(g.spots).map(Number);
@@ -322,7 +340,7 @@ test('two hiders go for the same spot: one gets it, the other is turned out and 
   run(T, 0.5);
   startMatch(T);
   const { pa, pb } = T;
-  const g = runUntil(T, 2, 'hide');
+  const g = runUntil(T, 1, 'hide');
   assert.equal(roleOf(g, 'me'), 'hider');
   assert.equal(roleOf(g, 'b'), 'hider');
   const house = pa.play.cx.house;
