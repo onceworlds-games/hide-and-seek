@@ -9,7 +9,7 @@ import { CONES, COLORS } from '../game/rules.js';
 import { visibility } from '../game/geometry.js';
 import { runPoster } from '../game/poster.js';
 
-const spots = (h) => h.spots.map(() => ({ occ: null, open: 0, wob: 0, hot: false, label: '', fill: '' }));
+const spots = (h) => h.spots.map(() => ({ occ: null, open: 0, wob: 0, hot: false, mine: false, label: '', fill: '' }));
 const char = (i, x, y, o = {}) => ({ id: `c${i}`, name: `Name${i}`, x, y, vx: 0, vy: 0, a: 0, color: COLORS[i], role: 'hider', bot: i % 2 === 0, face: i * 977, img: null, you: false, ready: false, alpha: 1, sq: 0, pop: 1, walk: i, phase: i, emote: '', draw: true, peek: -1, arrow: false, bubble: '', cheer: false, ...o });
 
 function clean(ctx, label) {
@@ -222,5 +222,31 @@ test('nothing important is drawn in the top-left 130 x 56 (the platform buttons)
       assert.ok(!(left < 130 && t.y - t.size / 2 < 56), `"${t.text}" sits in the platform's corner at ${W}x${H}`);
       assert.ok(!(t.y + t.size / 2 > H - 90 && (left < 190 || left + w > W - 190)) || t.text === 'Counting!', `"${t.text}" sits in a bottom corner (${Math.round(t.x)},${Math.round(t.y)}) at ${W}x${H}`);
     }
+  }
+});
+
+test('zoomed out so that every room and every piece of furniture is drawn (all kinds, all four fronts, open and wobbling)', () => {
+  for (const id of HOUSE_IDS) {
+    const house = getHouse(id);
+    const ctx = mockCtx();
+    const st = spots(house);
+    st.forEach((s, i) => {
+      s.open = (i % 3) / 2;
+      s.wob = (i % 2) * 0.8;
+      s.hot = i % 4 === 0;
+      s.label = i % 5 === 0 ? 'Search' : '';
+    });
+    const chars = house.spots.slice(0, 6).map((s, i) => char(i, 0, 0, { peek: s.i }));
+    const v = makeView(1000, 700, 1, { x: house.w / 2, y: house.h / 2 }, null);
+    v.scale = 16;
+    v.x0 = -50;
+    v.y0 = -50;
+    v.x1 = 100;
+    v.y1 = 100;
+    renderScene(ctx, v, { house, t: 2.2, spots: st, chars, beams: [], dim: null, blind: false, fx: null });
+    assert.deepEqual(ctx.__info.bad, [], `${id}: NaN while drawing everything`);
+    assert.ok(ctx.__info.calls > 1500, `${id}: the whole house was drawn (${ctx.__info.calls} calls)`);
+    const kinds = new Set(house.decor.map((f) => f.kind));
+    assert.ok(kinds.size >= 12, `${id}: a good mix of furniture (${[...kinds].join(',')})`);
   }
 });

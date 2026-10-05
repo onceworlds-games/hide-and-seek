@@ -336,7 +336,7 @@ test('two hiders go for the same spot: one gets it, the other is turned out and 
   pb.input.press();
   assert.equal(pa.play.me.hid, 4);
   assert.equal(pb.play.me.hid, 4, 'both believe they got it for a moment');
-  run(T, 1.6, { drawEvery: 6 });
+  run(T, 2.2, { drawEvery: 6 });
   const owner = pa.net.g.spots[4];
   assert.ok(owner === 'me' || owner === 'b');
   const loser = owner === 'me' ? pb : pa;

@@ -12,7 +12,7 @@ import * as ui from './ui.js';
 const r1 = (n) => Math.round(n * 10) / 10;
 const r2 = (n) => Math.round(n * 100) / 100;
 const FRONTS = { s: [0, 1], n: [0, -1], e: [1, 0], w: [-1, 0] };
-const newSpotState = () => ({ occ: null, open: 0, wob: 0, hot: false, label: '', fill: '' });
+const newSpotState = () => ({ occ: null, open: 0, wob: 0, hot: false, mine: false, label: '', fill: '' });
 
 export class Play {
   /** deps: { ow, room, net, audio, fx, input, avatars } */
@@ -309,10 +309,12 @@ export class Play {
     const mine = spotOf(g, this.room.me.id);
     if (me.hid >= 0) {
       if (mine === me.hid) me.confirmed = true;
-      else if (me.confirmed || this.t - me.hidAt > 1.0) {
+      else if (me.confirmed || this.t - me.hidAt > 1.5) {
         const refused = !me.confirmed;
         this.unhide(c, false);
         if (refused) {
+          // The host didn't give me the spot (or its answer is very late): tell it I'm out so we agree, and say so.
+          this.net.ask({ t: 'unhide' });
           this.audio.nope(1);
           this.fx.text(me.x, me.y - 0.8, 'taken!', '#ffb0b0', 22, 0.9);
         }
@@ -448,12 +450,15 @@ export class Play {
       this.audio.point();
     }
     const role = roleOf(g, id);
-    try {
-      if (role === 'hider' && g.survived.includes(id) && !R.usedSpot) this.ow.badges.award('master-hider');
-      if (role === 'seeker' && g.allFound && Object.values(g.fd).includes(id)) this.ow.badges.award('eagle-eye');
-    } catch {
-      // badges are a bonus
-    }
+    const award = (badge) => {
+      try {
+        Promise.resolve(this.ow.badges.award(badge)).catch(() => {});
+      } catch {
+        // badges are a bonus
+      }
+    };
+    if (role === 'hider' && g.survived.includes(id) && !R.usedSpot) award('master-hider');
+    if (role === 'seeker' && g.allFound && Object.values(g.fd).includes(id)) award('eagle-eye');
     if (role === 'hider' && g.survived.includes(id)) this.stats.survived++;
   }
 
@@ -755,6 +760,7 @@ export class Play {
       s.open = 0;
       s.wob = 0;
       s.hot = false;
+      s.mine = false;
       s.label = '';
       s.fill = '';
     }
@@ -808,14 +814,22 @@ export class Play {
         states[s.i].hot = text !== '';
         states[s.i].label = text;
       }
-    } else if (me.hid >= 0 && g && c.mode === 'seek') {
-      // drama: a seeker is close to where I hide
-      const s = house.spots[me.hid];
-      let near = false;
-      for (const ch of this.list) if (isSeeking(ch.role) && s && distToRect(ch.x, ch.y, [s.x, s.y, s.w, s.h]) <= RULES.hint) near = true;
-      if (near) {
-        states[me.hid].label = 'shhh';
-        states[me.hid].fill = '#bfe3ff';
+    } else if (me.hid >= 0 && states[me.hid]) {
+      // where I am: the spot is outlined; the first moments say how to step out, and a seeker close by makes me hold my breath
+      const st = states[me.hid];
+      st.mine = true;
+      if (this.t - me.hidAt < 2.5) {
+        st.label = 'Out';
+        st.fill = '#8cf0a8';
+      }
+      if (g && c.mode === 'seek') {
+        const s = house.spots[me.hid];
+        let near = false;
+        for (const ch of this.list) if (isSeeking(ch.role) && s && distToRect(ch.x, ch.y, [s.x, s.y, s.w, s.h]) <= RULES.hint) near = true;
+        if (near) {
+          st.label = 'shhh';
+          st.fill = '#bfe3ff';
+        }
       }
     }
   }
@@ -972,7 +986,7 @@ export class Play {
     const dots = g.roster.filter((r) => !g.seek.includes(r.id)).map((r) => ({ color: COLORS[r.c % COLORS.length], found: has(g.found, r.id) }));
     const mine = rankScores(g.roster, g.scores).find((r) => r.id === id);
     const seeker = isSeeking(c.role);
-    ui.drawHud(c2, W, 0, { round: `Round ${g.n}/${g.total}`, secs: reveal ? 0 : left, tag: seeker ? 'SEEK' : 'HIDE', seeker, dots, score: g.scores[id] ?? 0, place: mine && !c.spectating ? placeWord(mine.place) : '' }, this.t);
+    ui.drawHud(c2, W, 0, { round: `Round ${g.n}/${g.total}`, secs: reveal ? null : left, tag: seeker ? 'SEEK' : 'HIDE', seeker, dots, score: g.scores[id] ?? 0, place: mine && !c.spectating ? placeWord(mine.place) : '' }, this.t);
     const mw = Math.max(110, Math.min(160, W * 0.16));
     const seekers = this.list.filter((ch) => isSeeking(ch.role) && !ch.you).map((ch) => ({ x: ch.x, y: ch.y, found: ch.role === 'found' }));
     const meDot = c.spectating ? null : { x: this.me.x, y: this.me.y, color: seeker ? '#ff8a1f' : this.charFor(id).color };

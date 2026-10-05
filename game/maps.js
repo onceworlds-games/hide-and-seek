@@ -339,7 +339,10 @@ function build(def) {
     }
     return { x, y };
   };
-  const rooms = def.rooms.map((r) => ({ ...r, ...(() => { const p = nearFree(r.x + r.w / 2, r.y + r.h / 2); return { ax: p.x, ay: p.y }; })() }));
+  const rooms = def.rooms.map((r) => {
+    const p = nearFree(r.x + r.w / 2, r.y + r.h / 2);
+    return { ...r, ax: p.x, ay: p.y };
+  });
   const hiderStarts = [];
   for (let k = 0; k < 12; k++) {
     const a = 0.35 + (k / 12) * Math.PI * 2;

@@ -237,12 +237,14 @@ export function drawCounting(c, W, H, t, secs, roleColor) {
 export function drawHud(c, W, H, h, t) {
   const cx = W / 2;
   label(c, h.round, cx, 20, 18, { fill: '#fff6c9' });
-  const urgent = h.secs <= 5 && h.tag === 'HIDE';
-  const sz = 46 + (urgent ? Math.sin(t * 12) * 3 : 0);
-  label(c, String(Math.max(0, h.secs)), cx, 58, sz, { fill: urgent ? '#ff7a7a' : '#fff' });
-  if (h.seeker) glassesIcon(c, cx - 62, 56, 15);
-  else eyesIcon(c, cx - 62, 56, 15);
-  label(c, h.tag, cx + 58, 58, 20, { fill: h.seeker ? '#ffb347' : '#8cf0a8' });
+  if (h.secs !== null) {
+    const urgent = h.secs <= 5 && !h.seeker;
+    const sz = 46 + (urgent ? Math.sin(t * 12) * 3 : 0);
+    label(c, String(Math.max(0, h.secs)), cx, 58, sz, { fill: urgent ? '#ff7a7a' : '#fff' });
+    if (h.seeker) glassesIcon(c, cx - 62, 56, 15);
+    else eyesIcon(c, cx - 62, 56, 15);
+    label(c, h.tag, cx + 58, 58, 20, { fill: h.seeker ? '#ffb347' : '#8cf0a8' });
+  }
   // who is still hiding
   const n = h.dots.length;
   const gap = 24;

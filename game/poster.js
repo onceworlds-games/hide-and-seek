@@ -75,7 +75,7 @@ const char = (i, x, y, o = {}) => ({
   ...o,
 });
 
-const spotStates = (house) => house.spots.map(() => ({ occ: null, open: 0, wob: 0, hot: false, label: '', fill: '' }));
+const spotStates = (house) => house.spots.map(() => ({ occ: null, open: 0, wob: 0, hot: false, mine: false, label: '', fill: '' }));
 const spotOf = (house, kind, room) => house.spots.find((s) => s.kind === kind && s.room === room);
 
 function view(W, H, cx, cy, scale) {

@@ -43,12 +43,15 @@ export class HostGame {
   /** A human's latest position, from presence. */
   setHuman(id, x, y, a, vx = 0, vy = 0) {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    // Presence comes from another page: keep it inside the house whatever it says.
+    x = Math.min(this.house.w - 0.5, Math.max(0.5, x));
+    y = Math.min(this.house.h - 0.5, Math.max(0.5, y));
     let p = this.humans.get(id);
     if (!p) this.humans.set(id, (p = { x, y, vx: 0, vy: 0, a: 0 }));
     p.x = x;
     p.y = y;
-    p.vx = vx;
-    p.vy = vy;
+    p.vx = Number.isFinite(vx) ? vx : 0;
+    p.vy = Number.isFinite(vy) ? vy : 0;
     p.a = Number.isFinite(a) ? a : p.a;
   }
 

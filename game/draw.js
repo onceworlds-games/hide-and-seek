@@ -558,6 +558,13 @@ function drawSpotMarks(c, v, house, spots, t) {
       rrPath(c, s.x - 0.12, s.y - 0.12, s.w + 0.24, s.h + 0.24, 0.18);
       c.stroke();
     }
+    if (st && st.mine) {
+      // the spot I'm hiding in
+      c.strokeStyle = `rgba(140,240,168,${0.75 + 0.25 * pulse})`;
+      c.lineWidth = 5.5 / v.scale;
+      rrPath(c, s.x - 0.12, s.y - 0.12, s.w + 0.24, s.h + 0.24, 0.18);
+      c.stroke();
+    }
   }
   c.lineCap = 'butt';
 }
@@ -688,6 +695,7 @@ function drawChar(c, v, ch, t) {
   c.globalAlpha = ch.alpha ?? 1;
   // ground shadow
   ellipse(c, x + 0.08, y + 0.36, 0.4 * pop, 0.2 * pop, 'rgba(20,8,30,0.3)', 0);
+  if (seeker) ellipse(c, x, y + 0.34, 0.5, 0.28, null, 3.5 / v.scale, 'rgba(255,214,90,0.95)'); // a ring that says "seeker"
   if (ch.you) {
     const k = 0.5 + 0.5 * Math.sin(t * 4);
     ellipse(c, x, y + 0.34, 0.6 + k * 0.04, 0.34 + k * 0.02, null, 4 / v.scale, 'rgba(255,255,255,0.8)');

@@ -269,7 +269,7 @@ function makeDemo() {
     cam: { x: bots[0].x, y: bots[0].y },
     cone: { ang: (70 * Math.PI) / 180, range: 7, near: 1.5 },
     poly: [],
-    spots: house.spots.map(() => ({ occ: null, open: 0, wob: 0, hot: false, label: '', fill: '' })),
+    spots: house.spots.map(() => ({ occ: null, open: 0, wob: 0, hot: false, mine: false, label: '', fill: '' })),
   };
 }
 

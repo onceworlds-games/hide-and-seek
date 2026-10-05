@@ -235,3 +235,17 @@ test('the numbers a snapshot carries are small and rounded', () => {
   assert.equal(snap.t, 1235);
   assert.ok(JSON.stringify(snap).length < 400, 'one snapshot is a few hundred bytes');
 });
+
+test('a page that claims to be somewhere impossible is kept inside the house', () => {
+  const roster = buildRoster([{ id: 'h1', name: 'Ann' }], 2);
+  const G = engine.createMatch({ mid: 'far', by: 'h1', roster, settings: { rounds: 3, map: 'cozy' }, seed: 2 });
+  const host = new HostGame(G, 1);
+  host.setHuman('h1', 1e12, -1e12, 0, 1e9, NaN);
+  const p = host.posOf('h1');
+  assert.ok(p.x <= 31.5 && p.y >= 0.5 && Number.isFinite(p.vy));
+  host.setHuman('h1', NaN, 3, 0);
+  host.setHuman('h1', 3, 3, Infinity);
+  assert.ok(Number.isFinite(host.posOf('h1').a));
+  host.advance(0);
+  host.step(1 / 60, 100);
+});
