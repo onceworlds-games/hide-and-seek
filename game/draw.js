@@ -596,19 +596,29 @@ export function drawHead(c, ch, x, y, r, o = {}) {
   const t = o.t ?? 0;
   const h = ch.face ?? hashOf(ch.id);
   const img = ch.img;
-  if (img && img.complete && img.naturalWidth > 0) {
+  if (img && img.complete) {
+    // The player's avatar head in a round frame (an SVG may report no size of its own: the head box is 120 x 88).
+    const iw = img.naturalWidth || img.width || 120;
+    const ih = img.naturalHeight || img.height || 88;
+    let drawn = true;
     c.save();
-    c.beginPath();
-    c.arc(x, y, r, 0, TAU);
-    c.clip();
-    c.fillStyle = '#ffe3c2';
-    c.fillRect(x - r, y - r, r * 2, r * 2);
-    const w = r * 2.5;
-    const hh = (w * img.naturalHeight) / img.naturalWidth;
-    c.drawImage(img, x - w / 2, y - hh / 2 + r * 0.08, w, hh);
+    try {
+      c.beginPath();
+      c.arc(x, y, r, 0, TAU);
+      c.clip();
+      c.fillStyle = '#ffe3c2';
+      c.fillRect(x - r, y - r, r * 2, r * 2);
+      const w = r * 2.5;
+      const hh = (w * ih) / iw;
+      c.drawImage(img, x - w / 2, y - hh / 2 + r * 0.08, w, hh);
+    } catch {
+      drawn = false; // a picture the browser can't draw: the generated face below
+    }
     c.restore();
-    disc(c, x, y, r, null, lw);
-    return;
+    if (drawn) {
+      disc(c, x, y, r, null, lw);
+      return;
+    }
   }
   const bot = Boolean(ch.bot);
   disc(c, x, y, r, bot ? `hsl(${(h % 360) | 0}, 75%, 80%)` : SKINS[h % SKINS.length], lw);
