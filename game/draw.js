@@ -753,8 +753,8 @@ function drawBeam(c, b) {
   beamPath(c, b.poly);
   const g = c.createRadialGradient(b.x, b.y, 0.2, b.x, b.y, b.cone.range);
   const a = b.alpha ?? 1;
-  g.addColorStop(0, `rgba(255,244,180,${0.55 * a})`);
-  g.addColorStop(1, `rgba(255,236,150,${0.1 * a})`);
+  g.addColorStop(0, `rgba(255,244,180,${0.62 * a})`);
+  g.addColorStop(1, `rgba(255,236,150,${0.14 * a})`);
   c.fillStyle = g;
   c.fill();
 }
@@ -831,7 +831,7 @@ export function renderScene(c, v, scene) {
     const s = house.spots[ch.peek];
     if (!s) continue;
     const front = { s: [0, 1], n: [0, -1], e: [1, 0], w: [-1, 0] }[s.front];
-    drawPeek(c, s.ex - front[0] * 0.05, s.ey - front[1] * 0.05, 0.2, t, (ch.phase || 0), 0, 3 / v.scale);
+    drawPeek(c, s.ex - front[0] * 0.05, s.ey - front[1] * 0.05, 0.27, t, (ch.phase || 0), 0, 3 / v.scale);
   }
   if (scene.under) scene.under(c, v); // posters put a podium under the characters
   // characters, back to front
@@ -857,7 +857,7 @@ export function renderLabels(c, v, scene) {
     const st = scene.spots[s.i];
     if (!st || !st.label) continue;
     const x = toScreenX(v, s.x + s.w / 2);
-    const y = toScreenY(v, s.y) - 18 - Math.sin(t * 6) * 3;
+    const y = Math.max(toScreenY(v, s.y) - 18 - Math.sin(t * 6) * 3, 100); // never under the clock
     if (x < -50 || x > v.W + 50 || y < -50 || y > v.H + 50) continue;
     label(c, st.label, x, y, Math.max(18, size + 3), { fill: st.fill || '#ffe27a' });
   }
@@ -913,7 +913,7 @@ export function renderLabels(c, v, scene) {
       const p = f.t / f.dur;
       const e = 1 - Math.pow(1 - Math.min(1, p * 3), 3);
       const x = toScreenX(v, f.x);
-      const y = toScreenY(v, f.y) - e * 40 - p * 20;
+      const y = Math.max(toScreenY(v, f.y) - e * 40 - p * 20, 100);
       c.globalAlpha = p > 0.7 ? 1 - (p - 0.7) / 0.3 : 1;
       label(c, f.text, x, y, f.size * (0.7 + 0.3 * Math.min(1, p * 5) + (p < 0.15 ? 0.25 * (1 - p / 0.15) : 0)), { fill: f.col });
       c.globalAlpha = 1;

@@ -135,12 +135,12 @@ function cover(c, W, H) {
   fx.dust(11.6, 5.0);
   fx.dust(14.8, 6.7);
   const cone = CONES.seeker;
-  const v = view(W, H, 10.5, 2.0, 60);
+  const v = view(W, H, 10.5, 2.4, 56);
   renderScene(c, v, { house, t: 3.1, spots, chars, beams: [beamOf(seeker, cone, house)], dim: null, blind: false, fx });
   screenTransform(c, v);
   vignette(c, W, H, 0.55);
   // the name, chunky, in the top third (the only text)
-  drawLogo(c, W, 10, 172, 0.6);
+  drawLogo(c, W, 4, 142, 0.6);
 }
 
 // ---------------------------------------------------------------- action: a seeker opens a box, a hider inside, both surprised
@@ -156,9 +156,7 @@ function action(c, W, H) {
   fx.sparks(box.cx, box.cy - 0.9, '#ffffff', 10, 3);
   fx.ring(box.cx, box.cy - 0.6, '#fff', 1.6, 0.9);
   for (let i = 0; i < 6; i++) fx.update(0.04);
-  fx.puff(box.ax + 0.1, box.ay + 0.2, 8);
-  for (let i = 0; i < 3; i++) fx.update(0.03);
-  const v = view(W, H, box.cx - 1.6, box.cy - 0.7, 112);
+  const v = view(W, H, box.cx - 1.9, box.cy - 0.45, 140);
   renderScene(c, v, { house, t: 4.2, spots, chars: [seeker, hider], beams: [beamOf(seeker, CONES.seeker, house)], dim: null, blind: false, fx });
   screenTransform(c, v);
   vignette(c, W, H, 0.5);
@@ -169,37 +167,37 @@ function win(c, W, H) {
   const house = getHouse('cozy');
   const spots = spotStates(house);
   const blocks = [
-    { x: 14.9, top: 13.5, n: '1', col: '#ffd23f' },
-    { x: 12.6, top: 14.3, n: '2', col: '#cfd8e3' },
-    { x: 17.2, top: 14.8, n: '3', col: '#e39a5a' },
+    { x: 14.9, top: 12.4, n: '1', col: '#ffd23f' },
+    { x: 12.6, top: 13.2, n: '2', col: '#cfd8e3' },
+    { x: 17.2, top: 13.7, n: '3', col: '#e39a5a' },
   ];
   const chars = [
-    char(0, 16, 13.1, { cheer: true, emote: 'cheer', a: Math.PI / 2, pop: 1.1, phase: 0.2 }),
-    char(1, 13.7, 13.9, { cheer: true, emote: 'cheer', a: Math.PI / 2, phase: 1.1 }),
-    char(2, 18.3, 14.4, { cheer: true, emote: 'cheer', a: Math.PI / 2, phase: 2.0 }),
-    char(3, 10.6, 15.6, { cheer: true, emote: 'cheer', a: 0, phase: 2.9 }),
-    char(4, 21.2, 15.8, { cheer: true, emote: 'cheer', a: Math.PI, phase: 3.7 }),
-    char(5, 9.8, 12.6, { cheer: true, emote: 'cheer', a: 0.3, phase: 4.4 }),
-    char(7, 21.6, 12.9, { role: 'seeker', emote: 'laugh', a: Math.PI * 0.85 }),
+    char(0, 16, 12.0, { cheer: true, emote: 'cheer', a: Math.PI / 2, pop: 1.1, phase: 0.2 }),
+    char(1, 13.7, 12.8, { cheer: true, emote: 'cheer', a: Math.PI / 2, phase: 1.1 }),
+    char(2, 18.3, 13.3, { cheer: true, emote: 'cheer', a: Math.PI / 2, phase: 2.0 }),
+    char(3, 10.6, 14.4, { cheer: true, emote: 'cheer', a: 0, phase: 2.9 }),
+    char(4, 21.2, 14.6, { cheer: true, emote: 'cheer', a: Math.PI, phase: 3.7 }),
+    char(5, 9.8, 11.4, { cheer: true, emote: 'cheer', a: 0.3, phase: 4.4 }),
+    char(7, 21.6, 11.8, { role: 'seeker', emote: 'laugh', a: Math.PI * 0.85 }),
   ];
   const fx = newFx(21);
-  for (const [x, y] of [[12, 11.5], [16, 10.2], [20, 11.5], [9.5, 13], [22.5, 13.5]]) fx.confetti(x, y, 36, 9, 8);
+  for (const [x, y] of [[12, 10.5], [16, 9.2], [20, 10.5], [9.5, 12], [22.5, 12.5]]) fx.confetti(x, y, 36, 9, 8);
   for (let i = 0; i < 14; i++) fx.update(0.045);
   const under = (cc, v) => {
     const l = 3.5 / v.scale;
     for (const b of blocks) {
-      rbox(cc, b.x + 0.14, b.top + 0.2, 2.2, 15.9 - b.top, 0.2, 'rgba(15,6,25,0.35)', 0);
-      rbox(cc, b.x, b.top, 2.2, 15.9 - b.top, 0.2, b.col, l);
+      rbox(cc, b.x + 0.14, b.top + 0.2, 2.2, 14.8 - b.top, 0.2, 'rgba(15,6,25,0.35)', 0);
+      rbox(cc, b.x, b.top, 2.2, 14.8 - b.top, 0.2, b.col, l);
       rbox(cc, b.x + 0.12, b.top + 0.1, 1.96, 0.22, 0.1, 'rgba(255,255,255,0.45)', 0);
     }
   };
-  const v = view(W, H, 16, 13.2, 80);
+  const v = view(W, H, 16, 12.4, 80);
   renderScene(c, v, { house, t: 2.4, spots, chars, beams: [], dim: null, blind: false, fx, under });
   screenTransform(c, v);
   // the place numbers on the podium (the only text)
   for (const b of blocks) {
     const sx = (b.x + 1.1 - v.cx) * v.scale + W / 2;
-    const sy = (b.top + (15.9 - b.top) / 2 + 0.1 - v.cy) * v.scale + H / 2;
+    const sy = (b.top + (14.8 - b.top) / 2 + 0.1 - v.cy) * v.scale + H / 2;
     label(c, b.n, sx, sy, 66, { lw: 11 });
   }
   vignette(c, W, H, 0.45);
@@ -226,16 +224,15 @@ function icon(c, W, H) {
   rbox(c, x, y, w, h, 26, '#b9763f', 10);
   rbox(c, x + 16, y + 16, w - 32, h - 32, 18, '#d19558', 5);
   // the dark gap and the eyes inside
-  const dx = x + w / 2 - 6;
-  const dw = 62;
+  const dw = 88;
+  const dx = x + w / 2 - 10;
   c.fillStyle = '#14081e';
   c.fillRect(dx, y + 32, dw, h - 64);
-  // eyes
   for (const s of [0, 1]) {
-    const ex = dx + 18 + s * 28;
-    ellipse(c, ex, y + h * 0.4, 12, 18, '#fff', 4);
-    disc(c, ex + 2, y + h * 0.4 + 3, 6.5, OUT, 0);
-    disc(c, ex - 1, y + h * 0.4 - 2, 2.3, '#fff', 0);
+    const ex = dx + dw / 2 - 20 + s * 40;
+    ellipse(c, ex, y + h * 0.4, 16, 24, '#fff', 4);
+    disc(c, ex + 3, y + h * 0.4 + 4, 8.5, OUT, 0);
+    disc(c, ex - 1, y + h * 0.4 - 3, 3, '#fff', 0);
   }
   // the doors: the left one shut, the right one swung open
   rbox(c, x + 22, y + 34, dx - x - 22, h - 68, 10, '#a86a3a', 6);
@@ -303,9 +300,9 @@ function sleepMask(c, r) {
   c.lineWidth = 9;
   c.beginPath();
   c.moveTo(-w / 2, 0);
-  c.quadraticCurveTo(-w * 0.75, -h * 0.9, -w * 0.5, -h * 1.1);
+  c.quadraticCurveTo(-w * 0.62, -h * 0.7, -w * 0.4, -h * 0.85);
   c.moveTo(w / 2, 0);
-  c.quadraticCurveTo(w * 0.75, -h * 0.9, w * 0.5, -h * 1.1);
+  c.quadraticCurveTo(w * 0.62, -h * 0.7, w * 0.4, -h * 0.85);
   c.stroke();
   rrPath(c, -w / 2, -h / 2, w, h, h * 0.45);
   c.fillStyle = '#ffe27a';

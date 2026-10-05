@@ -37,7 +37,7 @@ export class Buttons {
 }
 
 /** A chunky button: offset shadow, outline, label. Returns its rect. */
-export function bigButton(c, x, y, w, h, text, fill, t, pressedPulse = true) {
+export function bigButton(c, x, y, w, h, text, fill, t, pressedPulse = true, dx = 0) {
   const k = pressedPulse ? 1 + Math.sin(t * 4) * 0.025 : 1;
   c.save();
   c.translate(x + w / 2, y + h / 2);
@@ -45,7 +45,7 @@ export function bigButton(c, x, y, w, h, text, fill, t, pressedPulse = true) {
   rbox(c, -w / 2 + 4, -h / 2 + 7, w, h, h * 0.3, 'rgba(10,4,20,0.4)', 0);
   rbox(c, -w / 2, -h / 2, w, h, h * 0.3, fill, 5);
   rbox(c, -w / 2 + 6, -h / 2 + 6, w - 12, h * 0.34, h * 0.16, 'rgba(255,255,255,0.28)', 0);
-  label(c, text, 0, 3, h * 0.6);
+  label(c, text, dx, 3, h * 0.6);
   c.restore();
 }
 
@@ -152,23 +152,23 @@ export function drawLogo(c, W, top, logoH, t) {
 /** The logo and one PLAY button, laid out to fit any screen. Returns the button's rect and where the logo ends. */
 export function drawTitle(c, W, H, t, touch) {
   const cx = W / 2;
-  const bh = Math.max(60, Math.min(86, H * 0.17));
-  const bw = Math.min(W * 0.5, 300);
+  const bh = Math.max(60, Math.min(80, H * 0.16));
+  const bw = Math.min(W * 0.5, 320);
   const bx = cx - bw / 2;
   const by = H - bh - Math.max(18, H * 0.06);
-  const top = Math.max(8, H * 0.03);
-  const logoH = Math.min(W * 0.3, (by - 14 - top) / 1.5);
+  const top = Math.max(6, H * 0.025);
+  const logoH = Math.min(H * 0.34, W * 0.2, (by - 14 - top) / 1.5);
   const { y2, l2 } = drawLogo(c, W, top, logoH, t);
-  bigButton(c, bx, by, bw, bh, 'PLAY', '#38c96b', t);
+  bigButton(c, bx, by, bw, bh, 'PLAY', '#38c96b', t, true, touch ? 0 : -22);
   if (!touch) {
-    const kw = 74;
-    const kh = 28;
-    rbox(c, bx + bw - kw - 14, by + bh - kh - 8, kw, kh, 8, 'rgba(255,255,255,0.9)', 3);
-    c.font = `18px ${FONT}`;
+    const kw = 62;
+    const kh = 24;
+    rbox(c, bx + bw - kw - 14, by + bh / 2 - kh / 2 + 3, kw, kh, 7, 'rgba(255,255,255,0.92)', 3);
+    c.font = `15px ${FONT}`;
     c.fillStyle = OUT;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    c.fillText('SPACE', bx + bw - kw / 2 - 14, by + bh - kh / 2 - 8);
+    c.fillText('SPACE', bx + bw - kw / 2 - 14, by + bh / 2 + 4);
   }
   return { x: bx, y: by, w: bw, h: bh, logoBottom: y2 + l2 * 0.5 };
 }
@@ -179,9 +179,9 @@ export function drawBanner(c, W, H, b) {
   const inP = clamp01(b.age / 0.25);
   const outP = clamp01((b.dur - b.age) / 0.25);
   const e = ease.outBack(inP);
-  const cy = H * 0.46;
-  const size = fit(c, b.text, W * 0.9, Math.min(H * 0.2, 118));
-  const bh = size * 1.55 + (b.sub ? size * 0.35 : 0);
+  const cy = H * 0.37;
+  const size = fit(c, b.text, W * 0.9, Math.min(H * 0.15, 110));
+  const bh = size * 1.5 + (b.sub ? size * 0.4 : 0);
   c.save();
   c.globalAlpha = Math.min(1, outP * 1.3);
   c.translate(0, cy);
@@ -197,8 +197,8 @@ export function drawBanner(c, W, H, b) {
   c.save();
   c.globalAlpha = Math.min(1, outP * 1.3);
   const k = 0.55 + 0.45 * e;
-  label(c, b.text, W / 2, cy - (b.sub ? size * 0.14 : 0), size * k);
-  if (b.sub) label(c, b.sub, W / 2, cy + size * 0.62, Math.max(20, size * 0.4) * k, { fill: '#fff6c9' });
+  label(c, b.text, W / 2, cy - (b.sub ? size * 0.16 : 0), size * k);
+  if (b.sub) label(c, b.sub, W / 2, cy + size * 0.6, Math.max(20, size * 0.4) * k, { fill: '#fff6c9' });
   c.restore();
 }
 
@@ -218,15 +218,35 @@ export function drawCounting(c, W, H, t, secs, roleColor) {
   const r = Math.min(H * 0.13, W * 0.12);
   const fy = H * 0.26;
   disc(c, cx, fy, r, '#ffd9b3', 6);
-  const gap = (0.5 + 0.5 * Math.sin(t * 1.6)) * r * 0.5;
+  const gap = (0.5 + 0.5 * Math.sin(t * 1.6)) * r * 0.42;
   for (const s of [-1, 1]) {
-    ellipse(c, cx + s * r * 0.4, fy - r * 0.05, r * 0.2, r * 0.26, '#fff', 3);
-    disc(c, cx + s * r * 0.4 + Math.sin(t) * r * 0.05, fy - r * 0.03, r * 0.1, OUT, 0);
-    // a hand over each eye, sliding open
-    rbox(c, cx + s * r * 0.4 - r * 0.32 + s * gap, fy - r * 0.42, r * 0.64, r * 0.74, r * 0.28, '#f5b88a', 5);
+    ellipse(c, cx + s * r * 0.42, fy - r * 0.08, r * 0.2, r * 0.26, '#fff', 3);
+    disc(c, cx + s * r * 0.42 + Math.sin(t) * r * 0.05, fy - r * 0.05, r * 0.1, OUT, 0);
   }
-  label(c, String(Math.max(0, secs)), cx, H * 0.55, Math.min(H * 0.38, W * 0.3), { fill: roleColor || '#ffe27a', lw: H * 0.04 });
-  label(c, 'Counting!', cx, H * 0.78, Math.min(H * 0.1, 44));
+  // a smile
+  c.strokeStyle = OUT;
+  c.lineWidth = 4;
+  c.lineCap = 'round';
+  c.beginPath();
+  c.arc(cx, fy + r * 0.28, r * 0.28, 0.2, Math.PI - 0.2);
+  c.stroke();
+  c.lineCap = 'butt';
+  // two hands over the eyes that slide apart now and then, fingers and all
+  for (const s of [-1, 1]) {
+    const hx = cx + s * (r * 0.42 + gap) - r * 0.36;
+    const hy = fy - r * 0.46;
+    rbox(c, hx, hy, r * 0.72, r * 0.78, r * 0.26, '#f5b88a', 5);
+    c.strokeStyle = 'rgba(120,60,20,0.55)';
+    c.lineWidth = 3;
+    c.beginPath();
+    for (let k = 1; k <= 2; k++) {
+      c.moveTo(hx + (k * r * 0.72) / 3, hy + r * 0.08);
+      c.lineTo(hx + (k * r * 0.72) / 3, hy + r * 0.34);
+    }
+    c.stroke();
+  }
+  label(c, String(Math.max(0, secs)), cx, H * 0.58, Math.min(H * 0.36, W * 0.3), { fill: roleColor || '#ffe27a', lw: H * 0.04 });
+  label(c, 'Counting!', cx, H * 0.82, Math.min(H * 0.1, 44));
 }
 
 // ---------------------------------------------------------------- HUD and minimap
@@ -236,37 +256,43 @@ export function drawCounting(c, W, H, t, secs, roleColor) {
  */
 export function drawHud(c, W, H, h, t) {
   const cx = W / 2;
-  label(c, h.round, cx, 20, 18, { fill: '#fff6c9' });
+  // row one: the clock, big, with who you are (glasses or eyes) and what to do
   if (h.secs !== null) {
     const urgent = h.secs <= 5 && !h.seeker;
-    const sz = 46 + (urgent ? Math.sin(t * 12) * 3 : 0);
-    label(c, String(Math.max(0, h.secs)), cx, 58, sz, { fill: urgent ? '#ff7a7a' : '#fff' });
-    if (h.seeker) glassesIcon(c, cx - 62, 56, 15);
-    else eyesIcon(c, cx - 62, 56, 15);
-    label(c, h.tag, cx + 58, 58, 20, { fill: h.seeker ? '#ffb347' : '#8cf0a8' });
+    const sz = 42 + (urgent ? Math.sin(t * 12) * 3 : 0);
+    label(c, String(Math.max(0, h.secs)), cx, 27, sz, { fill: urgent ? '#ff7a7a' : '#fff' });
+    if (h.seeker) glassesIcon(c, cx - 60, 26, 14);
+    else eyesIcon(c, cx - 60, 26, 14);
+    label(c, h.tag, cx + 56, 28, 19, { fill: h.seeker ? '#ffb347' : '#8cf0a8' });
   }
-  // who is still hiding
+  // row two: the round, and the hiders still out there
   const n = h.dots.length;
-  const gap = 24;
-  let x = cx - ((n - 1) * gap) / 2;
+  const gap = 22;
+  c.font = `16px ${FONT}`;
+  const rw = c.measureText(h.round).width;
+  const dw = Math.max(0, (n - 1) * gap) + 18;
+  const total = rw + 16 + dw;
+  const y2 = h.secs !== null ? 61 : 24;
+  label(c, h.round, cx - total / 2 + rw / 2, y2, 16, { fill: '#fff6c9' });
+  let x = cx - total / 2 + rw + 16 + 9;
   for (const d of h.dots) {
     if (d.found) {
-      disc(c, x, 94, 9, '#6a6478', 3);
+      disc(c, x, y2, 8, '#6a6478', 3);
       c.strokeStyle = '#fff';
       c.lineWidth = 3;
       c.beginPath();
-      c.moveTo(x - 4, 90);
-      c.lineTo(x + 4, 98);
-      c.moveTo(x + 4, 90);
-      c.lineTo(x - 4, 98);
+      c.moveTo(x - 3.5, y2 - 3.5);
+      c.lineTo(x + 3.5, y2 + 3.5);
+      c.moveTo(x + 3.5, y2 - 3.5);
+      c.lineTo(x - 3.5, y2 + 3.5);
       c.stroke();
-    } else disc(c, x, 94, 9, d.color, 3);
+    } else disc(c, x, y2, 8, d.color, 3);
     x += gap;
   }
   // your score (top right)
-  star(c, W - 112, 28, 15, '#ffd23f');
-  label(c, String(h.score), W - 18, 28, 34, { align: 'right' });
-  if (h.place) label(c, h.place, W - 18, 58, 22, { align: 'right', fill: '#fff6c9' });
+  star(c, W - 104, 26, 14, '#ffd23f');
+  label(c, String(h.score), W - 18, 26, 32, { align: 'right' });
+  if (h.place) label(c, h.place, W - 18, 54, 20, { align: 'right', fill: '#fff6c9' });
 }
 
 /** The little map: rooms, you (a blinking dot) and the seekers. m: { house, me: {x, y, color}, seekers: [{x, y, found}], x, y, w }. */
@@ -297,34 +323,34 @@ export function drawMinimap(c, m, t) {
 /** The settings as big values at the top. The host's chips can be tapped. chips: [{ id, label, value }]. */
 export function drawChips(c, W, H, chips, host, t, buttons, onTap) {
   const n = chips.length;
-  const cw = Math.min(190, (W - 60 - 16 * (n - 1)) / n);
-  const ch = 62;
-  const total = n * cw + (n - 1) * 16;
+  const cw = Math.min(176, (W - 60 - 14 * (n - 1)) / n);
+  const ch = 56;
+  const total = n * cw + (n - 1) * 14;
   let x = (W - total) / 2;
-  const y = 66;
+  const y = 60;
   for (const chip of chips) {
     rbox(c, x + 3, y + 5, cw, ch, 16, 'rgba(10,4,20,0.4)', 0);
     rbox(c, x, y, cw, ch, 16, host ? '#ffd23f' : '#eadff7', 4);
-    c.font = `18px ${FONT}`;
+    c.font = `16px ${FONT}`;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillStyle = '#5a3d1a';
-    c.fillText(chip.label.toUpperCase(), x + cw / 2, y + 17);
-    const size = fit(c, chip.value, cw - 24, 30);
-    label(c, chip.value, x + cw / 2, y + 42, size, { lw: size * 0.2 });
+    c.fillText(chip.label.toUpperCase(), x + cw / 2, y + 15);
+    const size = fit(c, chip.value, cw - 24, 27);
+    label(c, chip.value, x + cw / 2, y + 38, size, { lw: size * 0.2 });
     if (host) {
       // a little arrow shows it can be tapped
       c.fillStyle = OUT;
       c.beginPath();
       const ax = x + cw - 14 + Math.sin(t * 5) * 2;
-      c.moveTo(ax - 4, y + 11);
-      c.lineTo(ax + 4, y + 17);
-      c.lineTo(ax - 4, y + 23);
+      c.moveTo(ax - 4, y + 10);
+      c.lineTo(ax + 4, y + 16);
+      c.lineTo(ax - 4, y + 22);
       c.closePath();
       c.fill();
       buttons.add(`chip-${chip.id}`, x, y, cw, ch, () => onTap(chip.id));
     }
-    x += cw + 16;
+    x += cw + 14;
   }
 }
 
@@ -401,10 +427,11 @@ export function drawScoreboard(c, W, H, sb, t) {
 export function drawPodium(c, W, H, pod, t, compact = false) {
   const top3 = pod.order.slice(0, 3);
   const k = Math.min(1.6, H / 390);
-  const baseY = H * (compact ? 0.4 : 0.62);
-  const unit = H * (compact ? 0.06 : 0.075);
-  const bw = Math.min(compact ? 110 : 150 * Math.min(1.3, k), W * 0.22);
-  const hrMax = H * (compact ? 0.05 : 0.06);
+  const kk = Math.min(1.3, k);
+  const baseY = H * (compact ? 0.3 : 0.62);
+  const unit = H * (compact ? 0.05 : 0.075);
+  const bw = Math.min(compact ? 96 : 150 * kk, W * 0.22);
+  const hrMax = H * (compact ? 0.045 : 0.06);
   const heights = [3, 2, 1.4].map((n) => n * unit);
   const slots = [W / 2, W / 2 - bw * 1.08, W / 2 + bw * 1.08];
   for (let i = 0; i < 3; i++) {
@@ -420,13 +447,17 @@ export function drawPodium(c, W, H, pod, t, compact = false) {
     const hr = Math.min(bw * 0.36, hrMax) * (0.6 + 0.4 * grow);
     const hy = baseY - h - hr - 6 - Math.abs(Math.sin(t * 5 + i)) * (i === 0 ? 8 : 3);
     drawHead(c, row.ch, x, hy, hr, { lw: 4, t });
-    const nameSize = compact ? 18 : 22 * Math.min(1.3, k);
-    label(c, row.name, x, hy - hr - nameSize * 0.7, fit(c, row.name, bw * 1.4, nameSize));
-    if (!compact) label(c, String(row.score), x, baseY + 20 * Math.min(1.3, k), 24 * Math.min(1.3, k), { fill: '#fff6c9' });
-    if (i === 0 && !compact && pod.age > 0.6) star(c, x, hy - hr - nameSize * 0.7 - 30, 16 * Math.min(1.3, k), '#ffd23f');
+    if (compact) {
+      label(c, row.name, x, baseY + 15, fit(c, row.name, bw * 1.3, 17));
+    } else {
+      const nameSize = 22 * kk;
+      label(c, row.name, x, hy - hr - nameSize * 0.7, fit(c, row.name, bw * 1.4, nameSize));
+      label(c, String(row.score), x, baseY + 20 * kk, 24 * kk, { fill: '#fff6c9' });
+      if (i === 0 && pod.age > 0.6) star(c, x, hy - hr - nameSize * 0.7 - 30, 16 * kk, '#ffd23f');
+    }
   }
   const you = pod.you && pod.you.place > 3 ? pod.you : null;
-  if (you) label(c, `You: ${you.text}`, W / 2, baseY + (compact ? 22 : 54 * Math.min(1.3, k)), compact ? 22 : 28 * Math.min(1.3, k), { fill: '#fff7b0' });
+  if (you) label(c, `You: ${you.text}`, W / 2, baseY + (compact ? 38 : 54 * kk), compact ? 21 : 28 * kk, { fill: '#fff7b0' });
   if (!compact && pod.awards.length) {
     const n = pod.awards.length;
     const aw = Math.min(250, (W - 40) / n - 10);

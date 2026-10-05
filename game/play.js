@@ -725,8 +725,13 @@ export class Play {
       scene.dim = { x: this.me.x, y: this.me.y, cone, poly: this.poly, alpha: 0.84 };
     }
     renderScene(c2, v, scene);
-    renderLabels(c2, v, scene);
+    if (!late) renderLabels(c2, v, scene);
     screenTransform(c2, v);
+    if (c.mode === 'final' && this.t - (this.confettiAt ?? 0) > 0.14) {
+      // a steady rain of confetti on the results
+      this.confettiAt = this.t;
+      fx.confetti(this.cam.x + (Math.sin(this.t * 7.3) * 0.5 + (this.t % 1) - 0.5) * 12, this.cam.y - 5, 4, 6, 1.5);
+    }
     this.drawScreens(c2, c, W, H, v);
     // a tiny freeze on the biggest hits: the effects hold still for a moment (the clock and the input never do)
     if (fx.freeze > 0) fx.freeze -= dt;
