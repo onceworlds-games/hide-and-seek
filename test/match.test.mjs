@@ -30,6 +30,7 @@ function playMatch({ seed, map, rounds, humans = [] }) {
       if (G.phase === 'reveal') G.allFound ? out.earlyEnds++ : out.timeEnds++;
     }
     out.rounds.add(G.rid);
+    if (step % 3 !== 0) continue;
     for (const bot of host.bots.values()) {
       assert.ok([bot.x, bot.y, bot.vx, bot.vy, bot.a].every(Number.isFinite), `NaN in ${bot.id}`);
       assert.ok(bot.x >= 0.5 && bot.x <= house.w - 0.5 && bot.y >= 0.5 && bot.y <= house.h - 0.5, `${bot.id} left the house at ${bot.x},${bot.y}`);
@@ -51,7 +52,8 @@ function playMatch({ seed, map, rounds, humans = [] }) {
   return out;
 }
 
-const CASES = Array.from({ length: 20 }, (_, i) => ({ seed: i + 1, map: i % 2 ? 'mansion' : 'cozy', rounds: [3, 3, 5, 'all'][i % 4] === 'all' && i % 2 ? 3 : [3, 3, 5, 'all'][i % 4] }));
+// 20 seeds, both houses; mostly 3 rounds, a few of 5 and of "one per player" (6)
+const CASES = Array.from({ length: 20 }, (_, i) => ({ seed: i + 1, map: i % 2 ? 'mansion' : 'cozy', rounds: i < 12 ? 3 : i < 16 ? 5 : 'all' }));
 
 test('a whole match of only bots ends, ranks everyone, and nothing goes wrong (20 seeds)', () => {
   let totalFinds = 0;

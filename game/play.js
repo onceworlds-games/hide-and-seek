@@ -918,8 +918,8 @@ export class Play {
       else if (!results) ui.drawHint(c2, W, H, "Hide before you're found!", t);
       return;
     }
+    if (c.spectating) ui.drawWatching(c2, W, H, t);
     if (!g) return;
-    if (c.spectating) ui.drawWatching(c2, W, t);
     if (c.mode === 'hide' || c.mode === 'seek') {
       const left = Math.max(0, Math.ceil((g.until - c.matchNow) / 1000));
       if (c.counting) ui.drawCounting(c2, W, H, t, left, '#ffe27a');

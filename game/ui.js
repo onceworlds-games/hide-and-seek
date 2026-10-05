@@ -336,9 +336,11 @@ export function drawHint(c, W, H, text, t) {
   c.globalAlpha = 1;
 }
 
-export function drawWatching(c, W, t) {
-  eyesIcon(c, W / 2 - 54, 108, 15);
-  label(c, 'Watching', W / 2 + 12, 108, 24);
+/** A small "Watching" at the bottom middle for someone who came after the match began. */
+export function drawWatching(c, W, H, t) {
+  const y = H - 112 + Math.sin(t * 3) * 2;
+  eyesIcon(c, W / 2 - 62, y, 15);
+  label(c, 'Watching', W / 2 + 10, y, 26);
 }
 
 // ---------------------------------------------------------------- scoreboard between rounds

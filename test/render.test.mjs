@@ -125,7 +125,7 @@ test('every screen draws: title, HUD, minimap, banners, countdown, counting, sco
     ui.drawChips(ctx, W, H, [{ id: 'rounds', label: 'Rounds', value: '3' }, { id: 'map', label: 'House', value: 'Big Mansion' }], true, 1, new ui.Buttons(), () => {});
     ui.drawChips(ctx, W, H, [{ id: 'rounds', label: 'Rounds', value: 'Everyone' }], false, 1, new ui.Buttons(), () => {});
     ui.drawHint(ctx, W, H, "Hide before you're found!", 1);
-    ui.drawWatching(ctx, W, 1);
+    ui.drawWatching(ctx, W, H, 1);
     const rows = Array.from({ length: 10 }, (_, i) => ({ ch: char(i, 0, 0), name: `Player${i}`, score: 20 - i * 2, gain: i % 3 === 0 ? 7 : 0, you: i === 3 }));
     for (const age of [0, 1, 2, 4]) ui.drawScoreboard(ctx, W, H, { rows, title: 'Round 2', age }, 1);
     ui.drawScoreboard(ctx, W, H, { rows: rows.slice(0, 6), title: 'Final round', age: 3 }, 1);
