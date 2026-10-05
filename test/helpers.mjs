@@ -7,13 +7,16 @@ import { AudioSys } from '../game/audio.js';
 import { STEP } from '../game/sim.js';
 
 export function mockCtx() {
-  const info = { calls: 0, texts: [], bad: [] };
+  const info = { calls: 0, texts: [], bad: [], at: [] };
   const grad = { addColorStop() {} };
   const target = { canvas: { width: 1280, height: 720 }, __info: info };
+  // a small transform tracker (translate, scale, save, restore, setTransform; rotation ignored) so text positions are screen positions
+  let tf = { tx: 0, ty: 0, sx: 1, sy: 1 };
+  const stack = [];
   return new Proxy(target, {
     get(t, p) {
       if (p in t) return t[p];
-      if (p === 'measureText') return (s) => ({ width: String(s).length * 11 });
+      if (p === 'measureText') return (s) => ({ width: String(s).length * (parseFloat(t.font) || 10) * 0.5 });
       if (p === 'createRadialGradient' || p === 'createLinearGradient') {
         return (...a) => {
           if (a.some((x) => typeof x === 'number' && !Number.isFinite(x))) info.bad.push(`${String(p)}(${a})`);
@@ -23,7 +26,17 @@ export function mockCtx() {
       return (...a) => {
         info.calls++;
         if (a.some((x) => typeof x === 'number' && !Number.isFinite(x))) info.bad.push(`${String(p)}(${a.join(',')})`);
+        if (p === 'save') stack.push({ ...tf });
+        else if (p === 'restore') tf = stack.pop() ?? tf;
+        else if (p === 'translate') {
+          tf.tx += a[0] * tf.sx;
+          tf.ty += a[1] * tf.sy;
+        } else if (p === 'scale') {
+          tf.sx *= a[0];
+          tf.sy *= a[1];
+        } else if (p === 'setTransform') tf = { tx: a[4], ty: a[5], sx: a[0], sy: a[3] };
         if (p === 'fillText' || p === 'strokeText') info.texts.push(String(a[0]));
+        if (p === 'fillText') info.at.push({ text: String(a[0]), x: tf.tx + a[1] * tf.sx, y: tf.ty + a[2] * tf.sy, size: (parseFloat(t.font) || 10) * tf.sy, align: t.textAlign || 'start' });
       };
     },
     set(t, p, v) {
@@ -166,4 +179,15 @@ export function run(T, seconds, { drawEvery = 6, script } = {}) {
       pb.play.draw(pb.ctx, 844, 390, 2, drawEvery / 60);
     }
   }
+}
+
+/** Every text drawn lies inside the W x H screen (by the mock's width estimate). Returns the ones that don't. */
+export function textOutside(ctx, W, H, slack = 3) {
+  const out = [];
+  for (const t of ctx.__info.at) {
+    const w = t.text.length * t.size * 0.5;
+    const left = t.align === 'center' ? t.x - w / 2 : t.align === 'right' ? t.x - w : t.x;
+    if (left < -slack || left + w > W + slack || t.y - t.size * 0.5 < -slack || t.y + t.size * 0.5 > H + slack) out.push(`${t.text}@${Math.round(t.x)},${Math.round(t.y)} size ${t.size}`);
+  }
+  return out;
 }

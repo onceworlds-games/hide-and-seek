@@ -149,15 +149,16 @@ export function drawLogo(c, W, top, logoH, t) {
   return { y2, l2 };
 }
 
-/** The logo and one PLAY button. Returns the button's rect. */
+/** The logo and one PLAY button, laid out to fit any screen. Returns the button's rect and where the logo ends. */
 export function drawTitle(c, W, H, t, touch) {
   const cx = W / 2;
-  const logoH = Math.min(H * 0.5, W * 0.3);
-  const { y2, l2 } = drawLogo(c, W, H * 0.07, logoH, t);
+  const bh = Math.max(60, Math.min(86, H * 0.17));
   const bw = Math.min(W * 0.5, 300);
-  const bh = Math.max(64, Math.min(86, H * 0.17));
   const bx = cx - bw / 2;
-  const by = Math.min(H - bh - 30, y2 + l2 * 0.62 + 18);
+  const by = H - bh - Math.max(18, H * 0.06);
+  const top = Math.max(8, H * 0.03);
+  const logoH = Math.min(W * 0.3, (by - 14 - top) / 1.5);
+  const { y2, l2 } = drawLogo(c, W, top, logoH, t);
   bigButton(c, bx, by, bw, bh, 'PLAY', '#38c96b', t);
   if (!touch) {
     const kw = 74;
@@ -169,7 +170,7 @@ export function drawTitle(c, W, H, t, touch) {
     c.textBaseline = 'middle';
     c.fillText('SPACE', bx + bw - kw / 2 - 14, by + bh - kh / 2 - 8);
   }
-  return { x: bx, y: by, w: bw, h: bh };
+  return { x: bx, y: by, w: bw, h: bh, logoBottom: y2 + l2 * 0.5 };
 }
 
 // ---------------------------------------------------------------- banners and the countdown
@@ -178,7 +179,7 @@ export function drawBanner(c, W, H, b) {
   const inP = clamp01(b.age / 0.25);
   const outP = clamp01((b.dur - b.age) / 0.25);
   const e = ease.outBack(inP);
-  const cy = H * 0.38;
+  const cy = H * 0.46;
   const size = fit(c, b.text, W * 0.9, Math.min(H * 0.2, 118));
   const bh = size * 1.55 + (b.sub ? size * 0.35 : 0);
   c.save();
@@ -350,7 +351,7 @@ export function drawScoreboard(c, W, H, sb, t) {
   const old = rows.map((r) => ({ r, old: r.score - r.gain }));
   const byOld = old.slice().sort((a, b) => b.old - a.old || rows.indexOf(a.r) - rows.indexOf(b.r));
   const byNew = rows.slice().sort((a, b) => b.score - a.score || rows.indexOf(a) - rows.indexOf(b));
-  const two = n > 5;
+  const two = n > 6;
   const per = two ? Math.ceil(n / 2) : n;
   const colW = two ? Math.min(W * 0.46, 380) : Math.min(W * 0.84, 520);
   const top = 70;
@@ -389,54 +390,55 @@ export function drawScoreboard(c, W, H, sb, t) {
 
 // ---------------------------------------------------------------- results
 /**
- * pod: { order: [{ ch, name, score, place }] (best first), awards: [{ k, ch, name, v }], you: { place, name } | null, age }.
- * Three blocks, the winners' heads on top.
+ * pod: { order: [{ ch, name, score, place }] (best first), awards: [{ k, ch, name, v }], you: { place, text } | null, age }.
+ * Three blocks with the winners' heads on top, laid out from the screen's height so it fits a phone held sideways.
+ * `compact`: the small version shown over the lobby for a few seconds after the match.
  */
 export function drawPodium(c, W, H, pod, t, compact = false) {
   const top3 = pod.order.slice(0, 3);
-  const baseY = compact ? H * 0.4 : H * 0.7;
-  const bw = Math.min(compact ? 110 : 170, W * 0.22);
-  const unit = compact ? H * 0.06 : H * 0.115;
-  const heights = [3, 2, 1.4].map((k) => k * unit);
+  const k = Math.min(1.6, H / 390);
+  const baseY = H * (compact ? 0.4 : 0.62);
+  const unit = H * (compact ? 0.06 : 0.075);
+  const bw = Math.min(compact ? 110 : 150 * Math.min(1.3, k), W * 0.22);
+  const hrMax = H * (compact ? 0.05 : 0.06);
+  const heights = [3, 2, 1.4].map((n) => n * unit);
   const slots = [W / 2, W / 2 - bw * 1.08, W / 2 + bw * 1.08];
-  const order = [0, 1, 2];
-  if (!compact) label(c, 'RESULTS', W / 2, 36, 38);
-  for (const i of order) {
+  for (let i = 0; i < 3; i++) {
     const row = top3[i];
     if (!row) continue;
     const grow = ease.outBack(clamp01((pod.age - i * 0.15 - 0.1) / 0.5));
-    const h = heights[i] * grow;
+    const h = Math.max(0.01, heights[i] * grow);
     const x = slots[i];
     const colors = ['#ffd23f', '#cfd8e3', '#e39a5a'];
     rbox(c, x - bw / 2 + 4, baseY - h + 6, bw, h, 10, 'rgba(10,4,20,0.4)', 0);
     rbox(c, x - bw / 2, baseY - h, bw, h, 10, colors[i], 4);
-    label(c, String(row.place), x, baseY - h / 2, Math.min(h * 0.7, bw * 0.55), { fill: '#fff' });
-    const hr = Math.min(bw * 0.36, compact ? 30 : 56) * (0.6 + 0.4 * grow);
-    const hy = baseY - h - hr - 8 - Math.abs(Math.sin(t * 5 + i)) * (i === 0 ? 10 : 3);
+    label(c, String(row.place), x, baseY - h / 2, Math.min(h * 0.7, bw * 0.5), { fill: '#fff' });
+    const hr = Math.min(bw * 0.36, hrMax) * (0.6 + 0.4 * grow);
+    const hy = baseY - h - hr - 6 - Math.abs(Math.sin(t * 5 + i)) * (i === 0 ? 8 : 3);
     drawHead(c, row.ch, x, hy, hr, { lw: 4, t });
-    if (!compact) {
-      label(c, row.name, x, hy - hr - 18, Math.min(28, bw * 0.2));
-      label(c, String(row.score), x, baseY + 22, 28, { fill: '#fff6c9' });
-    } else label(c, row.name, x, hy - hr - 12, 18);
-    if (i === 0 && !compact) star(c, x, hy - hr - 52, 18, '#ffd23f');
+    const nameSize = compact ? 18 : 22 * Math.min(1.3, k);
+    label(c, row.name, x, hy - hr - nameSize * 0.7, fit(c, row.name, bw * 1.4, nameSize));
+    if (!compact) label(c, String(row.score), x, baseY + 20 * Math.min(1.3, k), 24 * Math.min(1.3, k), { fill: '#fff6c9' });
+    if (i === 0 && !compact && pod.age > 0.6) star(c, x, hy - hr - nameSize * 0.7 - 30, 16 * Math.min(1.3, k), '#ffd23f');
   }
-  if (pod.you && pod.you.place > 3) label(c, `You: ${pod.you.text}`, W / 2, baseY + (compact ? 24 : 60), compact ? 22 : 34, { fill: '#fff7b0' });
+  const you = pod.you && pod.you.place > 3 ? pod.you : null;
+  if (you) label(c, `You: ${you.text}`, W / 2, baseY + (compact ? 22 : 54 * Math.min(1.3, k)), compact ? 22 : 28 * Math.min(1.3, k), { fill: '#fff7b0' });
   if (!compact && pod.awards.length) {
     const n = pod.awards.length;
     const aw = Math.min(250, (W - 40) / n - 10);
-    const ay = Math.min(H - 52, baseY + (pod.you && pod.you.place > 3 ? 110 : 86));
+    const ay = H - 56;
     pod.awards.forEach((a, i) => {
       const ax = W / 2 + (i - (n - 1) / 2) * (aw + 14);
       const appear = ease.outBack(clamp01((pod.age - 1.2 - i * 0.3) / 0.4));
       c.save();
       c.translate(ax, ay);
-      c.scale(appear, appear);
+      c.scale(Math.max(0.01, appear), Math.max(0.01, appear));
       rbox(c, -aw / 2, -26, aw, 52, 14, '#2c1f45', 3);
       if (a.k === 'ghost') ghostIcon(c, -aw / 2 + 28, 2, 17);
       else magnifier(c, -aw / 2 + 24, -2, 15);
       drawHead(c, a.ch, aw / 2 - 28, 0, 17, { lw: 3, t });
       label(c, a.k === 'ghost' ? 'Ghost' : 'Bloodhound', -aw / 2 + 52, -9, 21, { align: 'left', fill: '#ffe27a' });
-      label(c, a.name, -aw / 2 + 52, 13, 17, { align: 'left' });
+      label(c, a.name, -aw / 2 + 52, 13, fit(c, a.name, aw - 110, 17), { align: 'left' });
       c.restore();
     });
   }

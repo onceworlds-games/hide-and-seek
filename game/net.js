@@ -58,7 +58,7 @@ export function parseG(raw) {
   };
   const copyNums = (from, into, hi) => {
     if (!from || typeof from !== 'object') return;
-    for (const id of ids) if (Object.prototype.hasOwnProperty.call(from, id)) into[id] = num(from[id], 0, hi);
+    for (const id of ids) if (Object.prototype.hasOwnProperty.call(from, id) && typeof from[id] === 'number' && Number.isFinite(from[id])) into[id] = num(from[id], 0, hi);
   };
   copyNums(raw.found, G.found, 1e8);
   copyNums(raw.scores, G.scores, 99999);

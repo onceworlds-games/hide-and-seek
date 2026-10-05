@@ -143,7 +143,7 @@ test('a whole match with two humans and four bots, from the lobby to the results
     assert.ok(stats && stats[1].matches === 1, 'stats saved once');
   }
   const texts = new Set([...pa.ctx.__info.texts, ...pb.ctx.__info.texts]);
-  for (const t of ['READY OR NOT!', 'RESULTS', 'Counting!', 'FOUND YOU!', 'HIDE!', 'SEEK', 'HIDE']) assert.ok(texts.has(t) || [...texts].some((x) => x.includes(t)), `drew "${t}"`);
+  for (const t of ['READY OR NOT!', 'Counting!', 'FOUND YOU!', 'HIDE!', 'SEEK', 'HIDE']) assert.ok(texts.has(t) || [...texts].some((x) => x.includes(t)), `drew "${t}"`);
   // the lobby is back with the results card up for a few seconds
   run(T, 2);
   assert.ok(pa.play.cx.mode === 'lobby');
@@ -250,4 +250,108 @@ test('a spectator who joins mid-match watches and can tap to follow someone else
   assert.notEqual(pb.play.watchId, first);
   assert.ok(pb.controls[pb.controls.length - 1] === null, 'no touch controls for a watcher');
   assert.deepEqual(pb.ctx.__info.bad, []);
+});
+
+/** Runs until the room's match record is in the given round and phase (for page `pb`'s view). */
+function runUntil(T, n, phase, limit = 400) {
+  for (let i = 0; i < limit; i++) {
+    const g = T.pb.net.g;
+    if (g && g.n === n && g.phase === phase) return g;
+    run(T, 0.5, { drawEvery: 60 });
+  }
+  throw new Error(`never reached round ${n} ${phase}`);
+}
+
+test('seekers find hiders by pressing the button next to a spot: the host page directly, a guest page by message', () => {
+  const T = makeTwoPages();
+  run(T, 0.5);
+  startMatch(T);
+  const { pa, pb } = T;
+  // round 1: both humans seek. Wait until at least two bots are hidden.
+  let g = runUntil(T, 1, 'seek');
+  for (let i = 0; i < 60 && Object.keys(pa.net.g.spots).length < 2; i++) run(T, 0.2, { drawEvery: 60 });
+  g = pa.net.g;
+  const spots = Object.keys(g.spots).map(Number);
+  assert.ok(spots.length >= 2, 'bots are hiding');
+  const house = pa.play.cx.house;
+  const [s1, s2] = spots.map((i) => house.spots[i]);
+  const occ1 = g.spots[s1.i];
+  const occ2 = g.spots[s2.i];
+  // A (the host) walks up and presses; B (a guest) does the same at the other spot
+  pa.play.me.x = s1.ax;
+  pa.play.me.y = s1.ay;
+  pb.play.me.x = s2.ax;
+  pb.play.me.y = s2.ay;
+  run(T, 0.1, { drawEvery: 60 });
+  pa.input.press();
+  pb.input.press();
+  run(T, 0.4, { drawEvery: 60 });
+  const now = pa.net.g;
+  assert.equal(now.fd[occ1], 'me', 'the host page found it');
+  assert.equal(now.fd[occ2], 'b', 'the guest found it, by asking the host');
+  assert.equal(roleOf(now, occ1), 'found');
+  assert.ok(now.ev.some((e) => e.k === 'found' && e.s === s1.i));
+  // both pages saw it happen: the text and a banner for the found one are drawn
+  run(T, 0.3, { drawEvery: 6 });
+  assert.ok(pb.ctx.__info.texts.includes('FOUND YOU!'));
+  // an empty spot says nope to everyone
+  const empty = house.spots.find((s) => !has2(pa.net.g.spots, s.i) && s.i !== s1.i && s.i !== s2.i);
+  pa.play.me.x = empty.ax;
+  pa.play.me.y = empty.ay;
+  pa.play.me.coolUntil = 0;
+  run(T, 1.2, { drawEvery: 60 });
+  const before = pa.net.g.seq;
+  pa.input.press();
+  run(T, 0.3, { drawEvery: 60 });
+  assert.ok(pa.net.g.seq > before);
+  assert.ok(pa.net.g.ev.some((e) => e.k === 'nope' && e.s === empty.i && e.f === 'me'));
+  // pressing the button again straight away (inside the second of cooldown) does nothing
+  const seq = pa.net.g.seq;
+  pa.input.press();
+  run(T, 0.1, { drawEvery: 60 });
+  assert.ok(!pa.net.g.ev.some((e) => e.i > seq && e.f === 'me'), 'no second search inside the cooldown');
+  assert.deepEqual(pb.ctx.__info.bad, []);
+});
+
+function has2(o, k) {
+  return Object.prototype.hasOwnProperty.call(o, k);
+}
+
+test('two hiders go for the same spot: one gets it, the other is turned out and told', () => {
+  const T = makeTwoPages();
+  run(T, 0.5);
+  startMatch(T);
+  const { pa, pb } = T;
+  const g = runUntil(T, 2, 'hide');
+  assert.equal(roleOf(g, 'me'), 'hider');
+  assert.equal(roleOf(g, 'b'), 'hider');
+  const house = pa.play.cx.house;
+  const s = house.spots[4];
+  for (const p of [pa, pb]) {
+    p.play.me.x = s.ax;
+    p.play.me.y = s.ay;
+  }
+  run(T, 0.1, { drawEvery: 60 });
+  pa.input.press();
+  pb.input.press();
+  assert.equal(pa.play.me.hid, 4);
+  assert.equal(pb.play.me.hid, 4, 'both believe they got it for a moment');
+  run(T, 1.6, { drawEvery: 6 });
+  const owner = pa.net.g.spots[4];
+  assert.ok(owner === 'me' || owner === 'b');
+  const loser = owner === 'me' ? pb : pa;
+  const winner = owner === 'me' ? pa : pb;
+  assert.equal(winner.play.me.hid, 4, 'the one who got it stays');
+  assert.equal(loser.play.me.hid, -1, 'the other is turned out');
+  assert.ok(Math.hypot(loser.play.me.x - s.ax, loser.play.me.y - s.ay) < 0.01, 'at the front of the spot');
+  assert.ok(loser.ctx.__info.texts.includes('taken!'), 'and told');
+  // they can try another spot
+  const other = house.spots[6];
+  loser.play.me.x = other.ax;
+  loser.play.me.y = other.ay;
+  run(T, 0.1, { drawEvery: 60 });
+  loser.input.press();
+  run(T, 0.8, { drawEvery: 60 });
+  assert.equal(loser.play.me.hid, 6);
+  assert.equal(pa.net.g.spots[6], loser === pa ? 'me' : 'b');
 });

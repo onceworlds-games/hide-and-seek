@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mockCtx } from './helpers.mjs';
+import { mockCtx, textOutside } from './helpers.mjs';
 import { getHouse, HOUSE_IDS } from '../game/maps.js';
 import { makeView, clampCamera, renderScene, renderLabels, drawHead, viewScale, screenTransform } from '../game/draw.js';
 import * as ui from '../game/ui.js';
@@ -107,10 +107,13 @@ test('heads draw as avatars (when loaded) and as generated faces', () => {
 
 test('every screen draws: title, HUD, minimap, banners, countdown, counting, scoreboard, podium, lobby bits', () => {
   const house = getHouse('cozy');
-  const ctx = mockCtx();
-  for (const [W, H] of [[1280, 720], [844, 390], [390, 844]]) {
+  const all = mockCtx();
+  for (const [W, H] of [[1280, 720], [844, 390], [667, 375], [390, 844]]) {
+    const ctx = mockCtx();
     const r = ui.drawTitle(ctx, W, H, 1.2, false);
-    assert.ok(r.w > 100 && r.h >= 64 && r.x >= 0 && r.x + r.w <= W && r.y + r.h <= H, `PLAY fits at ${W}x${H}: ${JSON.stringify(r)}`);
+    assert.ok(r.w > 100 && r.h >= 60 && r.x >= 0 && r.x + r.w <= W && r.y + r.h <= H, `PLAY fits at ${W}x${H}: ${JSON.stringify(r)}`);
+    assert.ok(r.logoBottom < r.y, `the logo ends (${r.logoBottom}) above the PLAY button (${r.y}) at ${W}x${H}`);
+    assert.deepEqual(textOutside(ctx, W, H), [], `title text inside the screen at ${W}x${H}`);
     ui.drawTitle(ctx, W, H, 2, true);
     ui.drawHud(ctx, W, H, { round: 'Round 2/3', secs: 4, tag: 'HIDE', seeker: false, dots: [{ color: '#f00', found: false }, { color: '#0f0', found: true }], score: 12, place: '2nd' }, 1);
     ui.drawHud(ctx, W, H, { round: 'Round 1/3', secs: 60, tag: 'SEEK', seeker: true, dots: [], score: 0, place: '' }, 1);
@@ -131,9 +134,13 @@ test('every screen draws: title, HUD, minimap, banners, countdown, counting, sco
     for (const age of [0, 0.5, 2, 9]) ui.drawPodium(ctx, W, H, { order, awards, you: { place: 5, text: '5th' }, age }, 1);
     ui.drawPodium(ctx, W, H, { order: order.slice(0, 2), awards: [], you: null, age: 9 }, 1, true);
     ui.drawPodium(ctx, W, H, { order: [], awards: [], you: null, age: 9 }, 1);
+    assert.deepEqual(textOutside(ctx, W, H), [], `text inside the screen at ${W}x${H}`);
+    all.__info.calls += ctx.__info.calls;
+    all.__info.bad.push(...ctx.__info.bad);
+    all.__info.texts.push(...ctx.__info.texts);
   }
-  clean(ctx, 'screens');
-  assert.ok(ctx.__info.texts.includes('PLAY') && ctx.__info.texts.includes('Counting!'));
+  clean(all, 'screens');
+  assert.ok(all.__info.texts.includes('PLAY') && all.__info.texts.includes('Counting!'));
 });
 
 test('buttons find what was tapped', () => {
@@ -198,4 +205,22 @@ test('screenTransform exists for the poster and the game', () => {
   const ctx = mockCtx();
   screenTransform(ctx, { pr: 2 });
   assert.ok(ctx.__info.calls >= 1);
+});
+
+test('nothing important is drawn in the top-left 130 x 56 (the platform buttons) or in the bottom corners during play', () => {
+  const house = getHouse('cozy');
+  for (const [W, H] of [[1280, 720], [844, 390], [667, 375]]) {
+    const ctx = mockCtx();
+    ui.drawHud(ctx, W, H, { round: 'Round 2/3', secs: 44, tag: 'HIDE', seeker: false, dots: [{ color: '#f00', found: false }, { color: '#0f0', found: true }], score: 12, place: '2nd' }, 1);
+    ui.drawMinimap(ctx, { house, me: { x: 10, y: 10, color: '#f0f' }, seekers: [], x: W - 176, y: 82, w: 160 }, 1);
+    ui.drawChips(ctx, W, H, [{ id: 'rounds', label: 'Rounds', value: '3' }, { id: 'map', label: 'House', value: 'Big Mansion' }], true, 1, new ui.Buttons(), () => {});
+    ui.drawBanner(ctx, W, H, { text: 'READY OR NOT!', sub: 'Here I come!', color: '#ff8a1f', age: 0.6, dur: 1.9 });
+    ui.drawCounting(ctx, W, H, 2, 14, '#ffe27a');
+    for (const t of ctx.__info.at) {
+      const w = t.text.length * t.size * 0.5;
+      const left = t.align === 'center' ? t.x - w / 2 : t.align === 'right' ? t.x - w : t.x;
+      assert.ok(!(left < 130 && t.y - t.size / 2 < 56), `"${t.text}" sits in the platform's corner at ${W}x${H}`);
+      assert.ok(!(t.y + t.size / 2 > H - 90 && (left < 190 || left + w > W - 190)) || t.text === 'Counting!', `"${t.text}" sits in a bottom corner (${Math.round(t.x)},${Math.round(t.y)}) at ${W}x${H}`);
+    }
+  }
 });

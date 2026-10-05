@@ -21,6 +21,7 @@ export class AudioSys {
     this.ctx = null;
     this.master = null;
     this.mood = 'off'; // off, menu, hide, seek, win
+    this.applied = '';
     this.step = 0;
     this.next = 0;
     this.timer = null;
@@ -183,12 +184,17 @@ export class AudioSys {
   }
 
   // ------------------------------------------------------------ music
-  /** off | menu (soft) | hide (sneaky, quiet) | seek (busy) | win. */
+  /** off | menu (soft) | hide (sneaky, quiet) | seek (busy) | win. Takes effect as soon as the sound is running. */
   setMood(mood) {
-    if (this.mood === mood) return;
     this.mood = mood;
+  }
+
+  /** Eases the music's volume toward what the mood wants (once the sound has started). */
+  applyMood() {
+    const mood = this.mood;
+    this.applied = mood;
     this.musicTarget = mood === 'off' ? 0 : mood === 'menu' ? 0.2 : mood === 'hide' ? 0.17 : mood === 'seek' ? 0.3 : 0.28;
-    if (this.live && this.musicGain) {
+    if (this.musicGain) {
       const t = this.ctx.currentTime;
       this.musicGain.gain.cancelScheduledValues(t);
       this.musicGain.gain.setTargetAtTime(this.musicTarget, t, 0.25);
@@ -199,6 +205,7 @@ export class AudioSys {
     if (!this.live) return;
     try {
       const c = this.ctx;
+      if (this.applied !== this.mood) this.applyMood();
       if (this.next < c.currentTime - 0.5) this.next = c.currentTime + 0.05; // after a long stall, don't rush to catch up
       while (this.next < c.currentTime + 0.14) {
         if (this.mood !== 'off') this.play(this.step, this.next);

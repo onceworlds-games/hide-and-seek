@@ -830,7 +830,7 @@ export function renderScene(c, v, scene) {
   const list = scene.chars.filter((ch) => ch.draw !== false && (ch.peek === undefined || ch.peek < 0));
   list.sort((a, b) => a.y - b.y);
   for (const ch of list) drawChar(c, v, ch, t);
-  if (scene.fx) scene.fx.draw(c);
+  if (scene.fx && !scene.skipParticles) scene.fx.draw(c);
   if (scene.blind) {
     screenTransform(c, v);
     c.fillStyle = 'rgba(8,6,26,0.93)';

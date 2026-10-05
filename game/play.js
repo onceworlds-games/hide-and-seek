@@ -6,7 +6,7 @@ import { walk } from './sim.js';
 import { canSee, visibility, distToRect } from './geometry.js';
 import { startPos, spotOf } from './engine.js';
 import { ease, clamp01 } from './fx.js';
-import { makeView, clampCamera, renderScene, renderLabels, hashOf, screenTransform } from './draw.js';
+import { makeView, clampCamera, renderScene, renderLabels, hashOf, screenTransform, worldTransform } from './draw.js';
 import * as ui from './ui.js';
 
 const r1 = (n) => Math.round(n * 10) / 10;
@@ -58,7 +58,7 @@ export class Play {
       if (prev && prev.phase === 'playing' && this.final && this.final.mid === prev.id) this.final.endedAt = this.t;
     });
     this.room.on('settings', () => this.audio.pop());
-    this.input.onAction(() => this.act());
+    this.input.onAction((code) => code === 'Space' && this.act());
     this.input.onTap((x, y) => this.tap(x, y));
     // Saved stats: a few numbers, written once after each match.
     this.statsReady = Promise.resolve(this.ow.save.get('stats'))
@@ -162,6 +162,7 @@ export class Play {
     if (c.mode === 'lobby') {
       const s = nearestSpot(house, me.x, me.y, RULES.reach);
       if (s) this.enter(s, c);
+      else this.nothingNear();
       return;
     }
     const g = c.g;
@@ -169,8 +170,18 @@ export class Play {
     if (c.role === 'hider') {
       const s = nearestSpot(house, me.x, me.y, RULES.reach, (i) => !has(g.spots, i));
       if (s) this.enter(s, c);
+      else this.nothingNear();
     } else if (g.phase === 'seek') {
       this.search(c);
+    }
+  }
+
+  /** The button was pressed with no spot within reach: a soft thud and two words, at most every couple of seconds. */
+  nothingNear() {
+    this.audio.bump();
+    if (this.t - (this.hintAt ?? -9) > 2) {
+      this.hintAt = this.t;
+      this.fx.text(this.me.x, this.me.y - 0.9, 'Get closer!', '#fff6c9', 22, 1);
     }
   }
 
@@ -215,7 +226,10 @@ export class Play {
     const me = this.me;
     if (this.t < me.coolUntil) return;
     const s = nearestSpot(c.house, me.x, me.y, RULES.reach);
-    if (!s) return;
+    if (!s) {
+      this.nothingNear();
+      return;
+    }
     me.coolUntil = this.t + RULES.coolMs / 1000;
     this.R.anim[s.i] = { kind: 'open', t0: this.t, mine: true };
     this.audio.open(1);
@@ -698,7 +712,8 @@ export class Play {
     v.y0 = v.cy - H / 2 / v.scale - 1;
     v.y1 = v.cy + H / 2 / v.scale + 1;
     this.spotsNow(c);
-    const scene = { house, t: this.t, spots: this.spotStates, chars: this.list, beams: this.beams(c), dim: null, blind: c.counting, fx };
+    const late = c.mode === 'score' || c.mode === 'final'; // the particles go over the dimmed backdrop of these screens
+    const scene = { house, t: this.t, spots: this.spotStates, chars: this.list, beams: this.beams(c), dim: null, blind: c.counting, fx, skipParticles: late };
     if (g && c.mode === 'seek' && isSeeking(c.role) && !c.spectating) {
       const cone = coneFor(c.role);
       visibility(this.me.x, this.me.y, this.me.a, cone, house.walls, this.poly);
@@ -707,7 +722,7 @@ export class Play {
     renderScene(c2, v, scene);
     renderLabels(c2, v, scene);
     screenTransform(c2, v);
-    this.drawScreens(c2, c, W, H);
+    this.drawScreens(c2, c, W, H, v);
     // a tiny freeze on the biggest hits: the effects hold still for a moment (the clock and the input never do)
     if (fx.freeze > 0) fx.freeze -= dt;
     else fx.update(dt);
@@ -875,17 +890,18 @@ export class Play {
   }
 
   // ------------------------------------------------------------ the screens on top of the world
-  drawScreens(c2, c, W, H) {
+  drawScreens(c2, c, W, H, v) {
     const g = c.g;
     const t = this.t;
     const room = this.room;
     this.btn.reset();
     if (this.t < this.goUntil) ui.drawCountdown(c2, W, H, 'GO!', 0.8 - (this.goUntil - this.t));
     if (c.mode === 'lobby') {
-      ui.drawChips(c2, W, H, this.chips(), room.isHost && room.match.phase === 'lobby', t, this.btn, (id) => this.cycleSetting(id));
+      const results = this.final && this.final.endedAt >= 0 && t - this.final.endedAt < 7 && room.match.phase === 'lobby';
+      if (results) this.drawResultsCard(c2, W, H);
+      else ui.drawChips(c2, W, H, this.chips(), room.isHost && room.match.phase === 'lobby', t, this.btn, (id) => this.cycleSetting(id));
       if (room.match.phase === 'starting') this.drawCountdown(c2, W, H);
-      else if (this.final && this.final.endedAt >= 0 && t - this.final.endedAt < 7) this.drawResultsCard(c2, W, H);
-      else ui.drawHint(c2, W, H, "Hide before you're found!", t);
+      else if (!results) ui.drawHint(c2, W, H, "Hide before you're found!", t);
       return;
     }
     if (!g) return;
@@ -901,13 +917,22 @@ export class Play {
     } else if (c.mode === 'score') {
       c2.fillStyle = 'rgba(14,8,28,0.72)';
       c2.fillRect(0, 0, W, H);
+      this.particlesOver(c2, v);
       const rows = g.roster.map((r) => ({ ch: this.charFor(r.id), name: this.charFor(r.id).name, score: g.scores[r.id] ?? 0, gain: g.gain[r.id] ?? 0, you: r.id === room.me.id }));
       ui.drawScoreboard(c2, W, H, { rows, title: g.n >= g.total ? 'Final round' : `Round ${g.n}`, age: Math.max(0, (c.matchNow - g.t0) / 1000) }, t);
     } else if (c.mode === 'final') {
       c2.fillStyle = 'rgba(14,8,28,0.72)';
       c2.fillRect(0, 0, W, H);
+      this.particlesOver(c2, v);
       ui.drawPodium(c2, W, H, this.podium(g, Math.max(0, (c.matchNow - g.t0) / 1000)), t);
     }
+  }
+
+  /** The particles again, over a dimmed screen (confetti must not be dimmed). */
+  particlesOver(c2, v) {
+    worldTransform(c2, v);
+    this.fx.draw(c2);
+    screenTransform(c2, v);
   }
 
   drawBanner(c2, W, H) {
@@ -947,7 +972,7 @@ export class Play {
     const dots = g.roster.filter((r) => !g.seek.includes(r.id)).map((r) => ({ color: COLORS[r.c % COLORS.length], found: has(g.found, r.id) }));
     const mine = rankScores(g.roster, g.scores).find((r) => r.id === id);
     const seeker = isSeeking(c.role);
-    ui.drawHud(c2, W, 0, { round: `Round ${g.n}/${g.total}`, secs: reveal ? 0 : left, tag: g.phase === 'hide' ? (seeker ? 'COUNT' : 'HIDE') : 'SEEK', seeker, dots, score: g.scores[id] ?? 0, place: mine && !c.spectating ? placeWord(mine.place) : '' }, this.t);
+    ui.drawHud(c2, W, 0, { round: `Round ${g.n}/${g.total}`, secs: reveal ? 0 : left, tag: seeker ? 'SEEK' : 'HIDE', seeker, dots, score: g.scores[id] ?? 0, place: mine && !c.spectating ? placeWord(mine.place) : '' }, this.t);
     const mw = Math.max(110, Math.min(160, W * 0.16));
     const seekers = this.list.filter((ch) => isSeeking(ch.role) && !ch.you).map((ch) => ({ x: ch.x, y: ch.y, found: ch.role === 'found' }));
     const meDot = c.spectating ? null : { x: this.me.x, y: this.me.y, color: seeker ? '#ff8a1f' : this.charFor(id).color };
