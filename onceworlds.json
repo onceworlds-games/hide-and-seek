@@ -1,0 +1,20 @@
+{
+  "slug": "hide-and-seek",
+  "name": "Hide and Seek",
+  "description": "Hide in the house before the seeker opens their eyes. Don't get found!",
+  "dir": "game",
+  "genre": "Party",
+  "icon": "store/icon.png",
+  "thumbnails": ["store/thumb-1.png", "store/thumb-2.png", "store/thumb-3.png"],
+  "badges": [
+    { "id": "first-win", "name": "First Win", "description": "Win a match.", "icon": "store/badge-first-win.png" },
+    { "id": "master-hider", "name": "Master Hider", "description": "Survive a whole round without hiding in a spot.", "icon": "store/badge-master-hider.png" },
+    { "id": "eagle-eye", "name": "Eagle Eye", "description": "Find every hider as the seeker.", "icon": "store/badge-eagle-eye.png" },
+    { "id": "sleepover", "name": "Sleepover", "description": "Play 10 matches.", "icon": "store/badge-sleepover.png" }
+  ],
+  "controls": [
+    { "keys": ["W", "A", "S", "D"], "action": "Move" },
+    { "keys": ["Up", "Down", "Left", "Right"], "action": "Move" },
+    { "keys": ["Space"], "action": "Hide / Search" }
+  ]
+}

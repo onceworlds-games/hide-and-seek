@@ -101,13 +101,20 @@ export function cleanName(name) {
   return s || 'Player';
 }
 
-/** Everyone in the match: the humans (in the order given), then bots up to the table size. */
+/** Everyone in the match: the humans (in the order given), then bots up to the table size. Colours follow the player's id where they can. */
 export function buildRoster(humans, seed) {
   const rng = mulberry32(seedOf(seed) ^ 0x9e3779b9);
   const names = shuffle(BOT_NAMES.slice(), rng);
-  const list = humans.slice(0, RULES.maxPlayers).map((h, i) => ({ id: String(h.id), n: cleanName(h.name), b: 0, c: i % COLORS.length }));
+  const used = new Set();
+  const take = (want) => {
+    let c = want % COLORS.length;
+    for (let k = 0; k < COLORS.length && used.has(c); k++) c = (c + 1) % COLORS.length;
+    used.add(c);
+    return c;
+  };
+  const list = humans.slice(0, RULES.maxPlayers).map((h) => ({ id: String(h.id), n: cleanName(h.name), b: 0, c: take(hashString(String(h.id))) }));
   const bots = Math.max(0, RULES.table - list.length);
-  for (let k = 0; k < bots; k++) list.push({ id: `bot${k + 1}`, n: names[k % names.length], b: 1, c: (list.length) % COLORS.length });
+  for (let k = 0; k < bots; k++) list.push({ id: `bot${k + 1}`, n: names[k % names.length], b: 1, c: take(list.length) });
   return list;
 }
 
