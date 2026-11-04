@@ -105,22 +105,16 @@ test('heads draw as avatars (when loaded) and as generated faces', () => {
   clean(ctx, 'heads');
 });
 
-test('every screen draws: title, HUD, minimap, banners, countdown, counting, scoreboard, podium, lobby bits', () => {
+test('every screen draws: HUD, minimap, banners, counting, scoreboard, podium, lobby bits', () => {
   const house = getHouse('cozy');
   const all = mockCtx();
   for (const [W, H] of [[1280, 720], [844, 390], [667, 375], [390, 844]]) {
     const ctx = mockCtx();
-    const r = ui.drawTitle(ctx, W, H, 1.2, false);
-    assert.ok(r.w > 100 && r.h >= 60 && r.x >= 0 && r.x + r.w <= W && r.y + r.h <= H, `PLAY fits at ${W}x${H}: ${JSON.stringify(r)}`);
-    assert.ok(r.logoBottom < r.y, `the logo ends (${r.logoBottom}) above the PLAY button (${r.y}) at ${W}x${H}`);
-    assert.deepEqual(textOutside(ctx, W, H), [], `title text inside the screen at ${W}x${H}`);
-    ui.drawTitle(ctx, W, H, 2, true);
     ui.drawHud(ctx, W, H, { round: 'Round 2/3', secs: 4, tag: 'HIDE', seeker: false, dots: [{ color: '#f00', found: false }, { color: '#0f0', found: true }], score: 12, place: '2nd' }, 1);
     ui.drawHud(ctx, W, H, { round: 'Round 1/3', secs: 60, tag: 'SEEK', seeker: true, dots: [], score: 0, place: '' }, 1);
     ui.drawMinimap(ctx, { house, me: { x: 10, y: 10, color: '#f0f' }, seekers: [{ x: 5, y: 5, found: false }, { x: 6, y: 6, found: true }], x: W - 180, y: 80, w: 150 }, 1);
     for (const age of [0, 0.1, 1, 1.7]) ui.drawBanner(ctx, W, H, { text: 'READY OR NOT!', sub: 'Here I come!', color: '#ff8a1f', age, dur: 1.9 });
     ui.drawBanner(ctx, W, H, { text: 'HIDE!', sub: '', color: '#38c96b', age: 0.5, dur: 1.5 });
-    for (const t of ['3', '2', '1', 'GO!']) ui.drawCountdown(ctx, W, H, t, 0.2);
     ui.drawCounting(ctx, W, H, 2, 14, '#ffe27a');
     ui.drawChips(ctx, W, H, [{ id: 'rounds', label: 'Rounds', value: '3' }, { id: 'map', label: 'House', value: 'Big Mansion' }], true, 1, new ui.Buttons(), () => {});
     ui.drawChips(ctx, W, H, [{ id: 'rounds', label: 'Rounds', value: 'Everyone' }], false, 1, new ui.Buttons(), () => {});
@@ -140,7 +134,7 @@ test('every screen draws: title, HUD, minimap, banners, countdown, counting, sco
     all.__info.texts.push(...ctx.__info.texts);
   }
   clean(all, 'screens');
-  assert.ok(all.__info.texts.includes('PLAY') && all.__info.texts.includes('Counting!'));
+  assert.ok(all.__info.texts.includes('Counting!'));
 });
 
 test('buttons find what was tapped', () => {

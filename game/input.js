@@ -5,7 +5,7 @@ const LEFT = ['KeyA', 'ArrowLeft'];
 const RIGHT = ['KeyD', 'ArrowRight'];
 const UP = ['KeyW', 'ArrowUp'];
 const DOWN = ['KeyS', 'ArrowDown'];
-const GAME_KEYS = new Set([...LEFT, ...RIGHT, ...UP, ...DOWN, 'Space', 'Enter']);
+const GAME_KEYS = new Set([...LEFT, ...RIGHT, ...UP, ...DOWN, 'Space']);
 
 export function createInput(ow, canvas) {
   const keys = new Set();
@@ -24,7 +24,6 @@ export function createInput(ow, canvas) {
     if (e.repeat) return;
     keys.add(code);
     if (code === 'Space') for (const fn of listeners.action) fn('Space');
-    else if (code === 'Enter') for (const fn of listeners.action) fn('Enter');
   });
   addEventListener('keyup', (e) => keys.delete(e.code));
   addEventListener('blur', () => keys.clear());
@@ -63,7 +62,7 @@ export function createInput(ow, canvas) {
     onTap(fn) {
       listeners.tap.push(fn);
     },
-    /** Any key or tap (the title screen's "skip" when a match is already running). */
+    /** Any key or tap. */
     onAny(fn) {
       listeners.any.push(fn);
     },

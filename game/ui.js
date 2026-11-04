@@ -1,4 +1,4 @@
-// Screens drawn on the canvas: title, HUD, minimap, banners, countdown, the seeker's counting, scoreboard, podium, lobby settings.
+// Screens drawn on the canvas: HUD, minimap, banners, the seeker's counting, scoreboard, podium, lobby settings.
 // Few words, big shapes, one font. Screen space (CSS pixels, the context already scaled by the pixel ratio).
 import { label, drawHead, OUT, FONT, rbox, disc, ellipse } from './draw.js';
 import { ease, clamp01 } from './fx.js';
@@ -149,31 +149,7 @@ export function drawLogo(c, W, top, logoH, t) {
   return { y2, l2 };
 }
 
-/** The logo and one PLAY button, laid out to fit any screen. Returns the button's rect and where the logo ends. */
-export function drawTitle(c, W, H, t, touch) {
-  const cx = W / 2;
-  const bh = Math.max(60, Math.min(80, H * 0.16));
-  const bw = Math.min(W * 0.5, 320);
-  const bx = cx - bw / 2;
-  const by = H - bh - Math.max(18, H * 0.06);
-  const top = Math.max(6, H * 0.025);
-  const logoH = Math.min(H * 0.34, W * 0.2, (by - 14 - top) / 1.5);
-  const { y2, l2 } = drawLogo(c, W, top, logoH, t);
-  bigButton(c, bx, by, bw, bh, 'PLAY', '#38c96b', t, true, touch ? 0 : -22);
-  if (!touch) {
-    const kw = 62;
-    const kh = 24;
-    rbox(c, bx + bw - kw - 14, by + bh / 2 - kh / 2 + 3, kw, kh, 7, 'rgba(255,255,255,0.92)', 3);
-    c.font = `15px ${FONT}`;
-    c.fillStyle = OUT;
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillText('SPACE', bx + bw - kw / 2 - 14, by + bh / 2 + 4);
-  }
-  return { x: bx, y: by, w: bw, h: bh, logoBottom: y2 + l2 * 0.5 };
-}
-
-// ---------------------------------------------------------------- banners and the countdown
+// ---------------------------------------------------------------- banners
 /** A big band across the screen with a few words. b: { text, sub, color, age, dur }. */
 export function drawBanner(c, W, H, b) {
   const inP = clamp01(b.age / 0.25);
@@ -199,16 +175,6 @@ export function drawBanner(c, W, H, b) {
   const k = 0.55 + 0.45 * e;
   label(c, b.text, W / 2, cy - (b.sub ? size * 0.16 : 0), size * k);
   if (b.sub) label(c, b.sub, W / 2, cy + size * 0.6, Math.max(20, size * 0.4) * k, { fill: '#fff6c9' });
-  c.restore();
-}
-
-/** The big 3, 2, 1, GO!. `age` is the seconds since this number appeared. */
-export function drawCountdown(c, W, H, text, age) {
-  const k = ease.outBack(clamp01(age / 0.3));
-  const size = Math.min(H * 0.55, W * 0.4) * (text === 'GO!' ? 0.7 : 1);
-  c.save();
-  c.globalAlpha = text === 'GO!' ? clamp01(1.2 - age) : 1;
-  label(c, text, W / 2, H * 0.42, size * (0.5 + 0.5 * k), { fill: text === 'GO!' ? '#38ff88' : '#ffe27a', lw: size * 0.12 });
   c.restore();
 }
 
@@ -358,7 +324,8 @@ export function drawChips(c, W, H, chips, host, t, buttons, onTap) {
 export function drawHint(c, W, H, text, t) {
   const size = fit(c, text, W * 0.86, 30);
   c.globalAlpha = 0.85 + Math.sin(t * 3) * 0.15;
-  label(c, text, W / 2, H - 118, size);
+  // a portrait phone keeps the bottom for the strip and the touch controls
+  label(c, text, W / 2, H > W ? 150 : H - 118, size);
   c.globalAlpha = 1;
 }
 

@@ -103,7 +103,6 @@ function makePage(room, clock, id) {
   const audio = new AudioSys();
   const avatars = { get: () => null };
   const play = new Play({ ow, room, net, audio, fx, input, avatars });
-  play.screen = 'play';
   const ctx = mockCtx();
   return { id, room, net, play, input, fx, audio, ctx, saved, badges, submitted, controls, ow };
 }

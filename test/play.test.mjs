@@ -201,7 +201,6 @@ test('the host hands over mid-round and the match carries on without a reset', (
 function reloadPage(T, room, ow, ctx) {
   const net = new Net(room, { now: () => T.clock.now });
   const play = new Play({ ow, room, net, audio: new AudioSys(), fx: new Fx(), input: fakeInput(), avatars: { get: () => null } });
-  play.screen = 'play';
   for (let i = 0; i < 120; i++) {
     T.clock.advance(1000 / 60);
     play.update(1 / 60);

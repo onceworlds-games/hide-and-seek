@@ -5,7 +5,7 @@ import { createStubRoom, standaloneOw } from '../game/net.js';
 import { BOT_NAMES } from '../game/rules.js';
 
 // main.js runs by itself when it is loaded: give it a browser made of fakes and drive its frame loop by hand.
-test('the page boots, shows the title, starts from PLAY, plays a round, shows a closed room and rejoins', async () => {
+test('the page boots into the lobby, plays a round, shows a closed room and rejoins', async () => {
   const clock = new FakeClock();
   const ctx = mockCtx();
   const handlers = { keydown: [], keyup: [], blur: [], resize: [], pointerdown: [], visibilitychange: [] };
@@ -24,11 +24,7 @@ test('the page boots, shows the title, starts from PLAY, plays a round, shows a 
       join: async () => {
         const r = createStubRoom({ now: () => clock.now, later: (fn, ms) => clock.later(fn, ms) });
         r.hideCalls = [];
-        const hide = r.hideLobby;
-        r.hideLobby = (h = true) => {
-          r.hideCalls.push(h);
-          hide(h);
-        };
+        r.hideLobby = (h = true) => r.hideCalls.push(h);
         rooms.push(r);
         return r;
       },
@@ -72,19 +68,10 @@ test('the page boots, shows the title, starts from PLAY, plays a round, shows a 
     assert.equal(rooms.length, 1, 'joined one room at the start');
     assert.equal(canvas.width, 1688, 'the canvas is the window at the pixel ratio');
     assert.equal(canvas.height, 780);
-    // the title
-    frames(40);
-    assert.ok(ctx.__info.texts.includes('PLAY') && ctx.__info.texts.includes('SEEK'), 'the title is up');
-    assert.deepEqual(rooms[0].hideCalls, [true], 'the lobby strip is hidden while the title shows');
-    assert.equal(controls[controls.length - 1] ?? null, null, 'no touch controls on the title');
-    // keys and taps before PLAY don't do anything but start the sound
-    handlers.pointerdown.forEach((f) => f({ clientX: 10, clientY: 10 }));
-    frames(3);
-    assert.ok(!ctx.__info.texts.includes("Hide before you're found!"), 'a tap off the button stays on the title');
-    // PLAY
-    handlers.pointerdown.forEach((f) => f({ clientX: 422, clientY: 333 }));
+    // the lobby, at once: no title, no Play, and the platform's strip left alone
     frames(30);
-    assert.deepEqual(rooms[0].hideCalls, [true, false], 'the lobby strip comes back');
+    assert.ok(!ctx.__info.texts.includes('PLAY'), 'nothing to press before the lobby');
+    assert.deepEqual(rooms[0].hideCalls, [], 'the lobby strip is never hidden');
     assert.ok(ctx.__info.texts.includes("Hide before you're found!"), 'the lobby arena is up');
     assert.ok(controls.some((c) => c && c.buttons && c.buttons[0].label === 'Hide'), 'the touch button says Hide');
     // ready up (the stand-in room has no platform strip): countdown, then the first round
@@ -112,7 +99,6 @@ test('the page boots, shows the title, starts from PLAY, plays a round, shows a 
     assert.equal(rooms.length, 2, 'rejoined');
     assert.ok(ctx.__info.texts.filter((x) => x === "Hide before you're found!").length >= 2, 'in the new room, in the lobby');
     assert.equal(errors.length, 0, errors.join('\n'));
-    // late joiner: a room that is already mid-match skips the title at the first tap
   } finally {
     console.error = realError;
     globalThis.setInterval = realSetInterval;
@@ -120,7 +106,7 @@ test('the page boots, shows the title, starts from PLAY, plays a round, shows a 
   }
 });
 
-test('a player who opens the game while a match is running skips the title at the first tap and watches', async () => {
+test('a player who opens the game while a match is running watches at once', async () => {
   const clock = new FakeClock();
   const ctx = mockCtx();
   const handlers = {};
@@ -166,9 +152,6 @@ test('a player who opens the game while a match is running skips the title at th
     await import('../game/main.js?late');
     await new Promise((r) => setTimeout(r, 20));
     frames(20);
-    assert.ok(ctx.__info.texts.includes('PLAY'), 'the title first');
-    assert.ok(!ctx.__info.texts.includes('SPACE'), 'on a touch device the title shows no key');
-    handlers.pointerdown.forEach((f) => f({ clientX: 5, clientY: 5 }));
     frames(30);
     assert.ok(ctx.__info.texts.includes('Watching'), 'they watch');
     assert.equal(errors.length, 0, errors.join('\n'));

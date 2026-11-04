@@ -35,8 +35,6 @@ export class Play {
     this.cx = { mode: 'lobby', g: null, role: 'lobby', spectating: false, house: this.house, matchNow: 0, counting: false, starting: false };
     this.banner = null;
     this.countN = -1;
-    this.countAt = 0;
-    this.goUntil = 0;
     this.final = null; // the last results, kept on screen a few seconds after the match
     this.lastRecord = null;
     this.finishedFor = '';
@@ -46,14 +44,7 @@ export class Play {
     this.emote = new Map();
     this.popAt = new Map();
     this.heartAt = 0;
-    this.screen = 'title';
     this.btn = new ui.Buttons();
-    this.room.on('starting', () => {
-      this.countN = -1;
-    });
-    this.room.on('matchstart', () => {
-      this.goUntil = this.t + 0.8;
-    });
     this.room.on('matchend', (m, prev) => {
       if (prev && prev.phase === 'playing' && this.final && this.final.mid === prev.id) this.final.endedAt = this.t;
     });
@@ -150,7 +141,6 @@ export class Play {
 
   // ------------------------------------------------------------ actions (Space, or the touch button)
   act() {
-    if (this.screen !== 'play') return;
     const c = this.cx;
     const me = this.me;
     if (c.spectating) return;
@@ -237,7 +227,6 @@ export class Play {
   }
 
   tap(x, y) {
-    if (this.screen !== 'play') return;
     if (this.btn.tap(x, y)) return;
     if (this.cx.spectating) this.cycleWatch();
   }
@@ -264,7 +253,6 @@ export class Play {
 
   // ------------------------------------------------------------ fixed step (60 Hz): my own character
   update(dt) {
-    if (this.screen !== 'play') return;
     const c = this.context();
     this.syncRound(c);
     const room = this.room;
@@ -531,7 +519,6 @@ export class Play {
         ch.color = COLORS[hashOf(p.id) % COLORS.length];
         ch.img = this.avatars.get(p.id);
         ch.role = 'lobby';
-        ch.ready = Boolean(p.ready);
         ch.away = p.connected === false;
         ch.alpha = ch.away ? 0.5 : 1;
         ch.arrow = false;
@@ -586,7 +573,6 @@ export class Play {
       ch.color = COLORS[r.c % COLORS.length];
       ch.img = r.b ? null : this.avatars.get(r.id);
       ch.role = role;
-      ch.ready = false;
       ch.bubble = '';
       ch.arrow = isMe && showArrow;
       const hidSpot = isMe && me.hid >= 0 ? me.hid : has(occ, r.id) ? occ[r.id] : -1;
@@ -901,7 +887,7 @@ export class Play {
     }
   }
 
-  /** The title screen has no controls. */
+  /** A closed room has no controls. */
   clearControls() {
     if (this.ctrlKey === 'none') return;
     this.ctrlKey = 'none';
@@ -914,12 +900,11 @@ export class Play {
     const t = this.t;
     const room = this.room;
     this.btn.reset();
-    if (this.t < this.goUntil) ui.drawCountdown(c2, W, H, 'GO!', 0.8 - (this.goUntil - this.t));
     if (c.mode === 'lobby') {
       const results = this.final && this.final.endedAt >= 0 && t - this.final.endedAt < 7 && room.match.phase === 'lobby';
       if (results) this.drawResultsCard(c2, W, H);
       else ui.drawChips(c2, W, H, this.chips(), room.isHost && room.match.phase === 'lobby', t, this.btn, (id) => this.cycleSetting(id));
-      if (room.match.phase === 'starting') this.drawCountdown(c2, W, H);
+      if (room.match.phase === 'starting') this.countBeeps();
       else if (!results) ui.drawHint(c2, W, H, "Hide before you're found!", t);
       return;
     }
@@ -975,15 +960,12 @@ export class Play {
     return out;
   }
 
-  drawCountdown(c2, W, H) {
-    const left = (this.room.match.startsAt - this.ow.now()) / 1000;
-    const n = Math.ceil(left);
-    if (n !== this.countN) {
-      this.countN = n;
-      this.countAt = this.t;
-      this.audio.beep(n <= 0);
-    }
-    ui.drawCountdown(c2, W, H, n > 0 ? String(Math.min(n, 9)) : 'GO!', this.t - this.countAt);
+  /** The beeps under the platform's 3-2-1 (it draws the numerals). */
+  countBeeps() {
+    const n = Math.ceil((this.room.match.startsAt - this.ow.now()) / 1000);
+    if (n === this.countN) return;
+    this.countN = n;
+    this.audio.beep(n <= 0);
   }
 
   drawHud(c2, W, g, c, left, reveal = false) {

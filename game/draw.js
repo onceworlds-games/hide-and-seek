@@ -858,7 +858,7 @@ export function renderScene(c, v, scene) {
   screenTransform(c, v);
 }
 
-/** Labels over the world (names, ready checks, prompts, floating text): screen space, call after renderScene. */
+/** Labels over the world (names, prompts, floating text): screen space, call after renderScene. */
 export function renderLabels(c, v, scene) {
   const t = scene.t;
   const size = Math.max(14, Math.min(19, v.scale * 0.34));
@@ -879,26 +879,6 @@ export function renderLabels(c, v, scene) {
     const top = y - 1.05 * v.scale;
     if (ch.name && !ch.noName) {
       label(c, ch.name, x, top, size, { fill: ch.you ? '#fff7b0' : '#fff' });
-    }
-    if (ch.ready) {
-      const r = Math.max(13, v.scale * 0.28);
-      c.beginPath();
-      c.arc(x, top - r - 4, r, 0, TAU);
-      c.fillStyle = '#38c96b';
-      c.fill();
-      c.lineWidth = 3;
-      c.strokeStyle = OUT;
-      c.stroke();
-      c.strokeStyle = '#fff';
-      c.lineWidth = 4;
-      c.lineCap = 'round';
-      c.lineJoin = 'round';
-      c.beginPath();
-      c.moveTo(x - r * 0.45, top - r - 3);
-      c.lineTo(x - r * 0.1, top - r + r * 0.3);
-      c.lineTo(x + r * 0.5, top - r - r * 0.35 - 3);
-      c.stroke();
-      c.lineCap = 'butt';
     }
     if (ch.bubble) label(c, ch.bubble, x, top - 22, size + 2, { fill: '#cfe9ff' });
     if (ch.arrow) {
